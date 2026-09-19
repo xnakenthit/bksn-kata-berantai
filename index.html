@@ -613,7 +613,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           </div>
 
           <!-- PESAN REFLEKSI BKSN MATIUS 18:15 -->
-          <div class="glass-card p-6 sm:p-8 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/30 via-slate-900/40 to-amber-950/30 text-center relative overflow-hidden mb-8">
+          <div class="glass-card p-6 sm:p-8 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/30 via-slate-900/40 to-amber-950/30 text-center relative overflow-hidden mb-6">
             <div class="inline-flex items-center space-x-2 text-amber-400 font-extrabold text-sm mb-2">
               <span>💡 REFLEKSI PESAN BERANTAI</span>
             </div>
@@ -626,6 +626,11 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
               Hindari desas-desus atau gosip di lingkungan. Selalu konfirmasi langsung secara pribadi!
             </p>
           </div>
+
+          <!-- FOOTER COPYRIGHT HERIKRISMUNANTO -->
+          <footer class="text-center py-4 border-t border-slate-800/80 text-xs text-slate-500 font-medium tracking-wide">
+            © 2026 <span class="text-slate-400">KataBerantai BKSN</span> • Developed by <strong class="text-amber-400 font-bold">herikrismunanto</strong>
+          </footer>
         `;
 
         if (isFinished && typeof confetti === 'function') {
