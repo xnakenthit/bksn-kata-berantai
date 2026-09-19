@@ -57,6 +57,22 @@
   </div>
 
   <script>
+    window.onerror = function(msg, url, line) {
+      console.error('BKSN Error:', msg, url, line);
+      const app = document.getElementById('app');
+      if (app && (!app.innerHTML || app.innerHTML.trim() === '')) {
+        app.innerHTML = `
+          <div class="glass-card p-6 rounded-3xl max-w-lg mx-auto my-12 text-center border border-rose-500/30">
+            <h2 class="text-xl font-bold text-rose-400 mb-2">Terjadi Kendala Memuat Aplikasi</h2>
+            <p class="text-xs text-slate-300 mb-4">${msg}</p>
+            <button onclick="localStorage.clear(); location.reload();" class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer">
+              ↺ Clear Cache & Refresh
+            </button>
+          </div>
+        `;
+      }
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
     const group = (urlParams.get('group') || 'A').toUpperCase();
@@ -144,23 +160,35 @@
       }
     ];
 
+    function safeJSONParse(key, fallback) {
+      try {
+        const item = localStorage.getItem(key);
+        if (!item || item === 'undefined' || item === 'null') return fallback;
+        return JSON.parse(item);
+      } catch (e) {
+        return fallback;
+      }
+    }
+
     let storedShowSecret = localStorage.getItem('bksn_show_secret');
     let initialShowSecret = storedShowSecret !== null ? storedShowSecret === 'true' : false;
+
+    const defaultTeksData = {
+      A: DEFAULT_PRESETS[0].teks_a,
+      B: DEFAULT_PRESETS[0].teks_b,
+      C: DEFAULT_PRESETS[0].teks_c,
+      D: DEFAULT_PRESETS[0].teks_d,
+      E: DEFAULT_PRESETS[0].teks_e,
+      F: DEFAULT_PRESETS[0].teks_f
+    };
 
     // DEFAULT SESSION STATE
     let localSession = {
       id: 1,
       preset_id: 'p1',
       group_count: parseInt(localStorage.getItem('bksn_group_count') || '2'),
-      teks_data: JSON.parse(localStorage.getItem('bksn_teks_data') || JSON.stringify({
-        A: DEFAULT_PRESETS[0].teks_a,
-        B: DEFAULT_PRESETS[0].teks_b,
-        C: DEFAULT_PRESETS[0].teks_c,
-        D: DEFAULT_PRESETS[0].teks_d,
-        E: DEFAULT_PRESETS[0].teks_e,
-        F: DEFAULT_PRESETS[0].teks_f
-      })),
-      hasil_data: JSON.parse(localStorage.getItem('bksn_hasil_data') || JSON.stringify({ A: '', B: '', C: '', D: '', E: '', F: '' })),
+      teks_data: safeJSONParse('bksn_teks_data', defaultTeksData),
+      hasil_data: safeJSONParse('bksn_hasil_data', { A: '', B: '', C: '', D: '', E: '', F: '' }),
       status: 'idle',
       show_secret: initialShowSecret
     };
@@ -1042,3 +1070,6 @@ alter table game_session disable row level security;
 
       initHost();
     }
+  </script>
+</body>
+</html>
