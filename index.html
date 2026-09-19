@@ -69,13 +69,20 @@
       { name: 'D', label: 'Kelompok D', color: 'rose', borderClass: 'border-rose-500/30', textClass: 'text-rose-400', badgeClass: 'bg-rose-950/80 border-rose-500/40 text-rose-300', winnerBg: 'bg-rose-500/20 border-rose-400 text-rose-300' },
       { name: 'E', label: 'Kelompok E', color: 'purple', borderClass: 'border-purple-500/30', textClass: 'text-purple-400', badgeClass: 'bg-purple-950/80 border-purple-500/40 text-purple-300', winnerBg: 'bg-purple-500/20 border-purple-400 text-purple-300' },
       { name: 'F', label: 'Kelompok F', color: 'indigo', borderClass: 'border-indigo-500/30', textClass: 'text-indigo-400', badgeClass: 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300', winnerBg: 'bg-indigo-500/20 border-indigo-400 text-indigo-300' }
-    ];
+        // BROADCAST CHANNEL UNTUK SYNC LOCAL CROSS-TAB
+    const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('bksn_game_sync') : null;
 
-    // DEFAULT PRESETS GAME KATA BERANTAI
+    function broadcastSessionUpdate(sessionData) {
+      if (syncChannel) {
+        try { syncChannel.postMessage({ type: 'SESSION_UPDATE', session: sessionData }); } catch(e){}
+      }
+    }
+
+    // DEFAULT PRESETS GAME KATA BERANTAI (PERIKOP MATIUS 18:15-20 LENGKAP)
     const DEFAULT_PRESETS = [
       {
         id: 'p1',
-        judul: 'Pertemuan 3 - Teguran 4 Mata (Mat 18:15)',
+        judul: 'Mat 18:15 — Teguran 4 Mata (BKSN 3 Utama)',
         teks_a: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
         teks_b: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
         teks_c: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
@@ -85,7 +92,37 @@
       },
       {
         id: 'p2',
-        judul: 'Pertemuan 3 - Dua Tiga Orang (Mat 18:20)',
+        judul: 'Mat 18:16 — Dua Tiga Orang Saksi',
+        teks_a: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.',
+        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.',
+        teks_c: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.',
+        teks_d: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.',
+        teks_e: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.',
+        teks_f: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi, supaya atas keterangan saksi perkara itu sah.'
+      },
+      {
+        id: 'p3',
+        judul: 'Mat 18:17 — Sampaikan Kepada Jemaat',
+        teks_a: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
+        teks_b: 'Jika ia tidak mau mendengarkan meka, sampaikanlah kepada jemaat.',
+        teks_c: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
+        teks_d: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
+        teks_e: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
+        teks_f: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.'
+      },
+      {
+        id: 'p4',
+        judul: 'Mat 18:18 — Terikat dan Terlepas di Sorga',
+        teks_a: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.',
+        teks_b: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.',
+        teks_c: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.',
+        teks_d: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.',
+        teks_e: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.',
+        teks_f: 'Apa yang kamu ikat di dunia ini akan terikat di sorga dan apa yang kamu melepaskan akan terlepas di sorga.'
+      },
+      {
+        id: 'p5',
+        judul: 'Mat 18:19-20 — Berkumpul dalam Nama-Ku',
         teks_a: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
         teks_b: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
         teks_c: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
@@ -94,14 +131,14 @@
         teks_f: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.'
       },
       {
-        id: 'p3',
-        judul: 'Pertemuan 3 - Variasi Kelompok Beda Teks',
-        teks_a: 'Jika ia mendengarkan bahasamu, engkau telah mendapat kembali saudaramu.',
-        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi.',
-        teks_c: 'Supaya atas keterangan dua atau tiga orang saksi, perkara itu sah.',
-        teks_d: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
-        teks_e: 'Jika ia tidak mau mendengarkan jemaat, pandanglah dia sebagai orang yang tidak mengenal Allah.',
-        teks_f: 'Aku berkata kepadamu: Apa yang kamu ikat di dunia ini akan terikat di sorga.'
+        id: 'p6',
+        judul: 'Variasi Perikop Matius 18:15-20 (Ayat Berbeda Tiap Kelompok)',
+        teks_a: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja. (Mat 18:15)',
+        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi. (Mat 18:16)',
+        teks_c: 'Supaya atas keterangan dua atau tiga orang saksi, perkara itu sah. (Mat 18:16b)',
+        teks_d: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat. (Mat 18:17)',
+        teks_e: 'Apa yang kamu ikat di dunia ini akan terikat di sorga. (Mat 18:18)',
+        teks_f: 'Di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di sana. (Mat 18:20)'
       }
     ];
 
@@ -123,7 +160,6 @@
       })),
       hasil_data: JSON.parse(localStorage.getItem('bksn_hasil_data') || JSON.stringify({ A: '', B: '', C: '', D: '', E: '', F: '' })),
       status: 'idle',
-      show_secret: initialShowSecret
     };
 
     // Helper get Teks & Hasil per Kelompok
@@ -345,7 +381,7 @@
             <div class="flex justify-between items-center pb-6 mb-6 border-b border-slate-800">
               <div>
                 <h1 class="text-2xl font-black text-amber-400">CMS Admin Kata Berantai BKSN</h1>
-                <p class="text-xs text-slate-400">Pengaturan Jumlah Kelompok, Preset Game & Kontrol Sesi</p>
+                <p class="text-xs text-slate-400">Pengaturan Jumlah Kelompok, Preset Perikop & Kontrol Sesi Realtime</p>
               </div>
               <a href="index.html" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-bold px-4 py-2 rounded-xl transition">
                 ← Kembali ke Layar Utama
@@ -356,7 +392,7 @@
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
               <h2 class="text-base font-bold text-sky-400 mb-4">🎮 Kontrol Game Kata Berantai</h2>
               
-              <div class="space-y-5">
+              <div class="space-y-6">
                 <!-- PENGATURAN JUMLAH KELOMPOK -->
                 <div class="bg-amber-950/30 p-4 rounded-2xl border border-amber-500/30">
                   <label class="block text-xs font-black text-amber-400 uppercase tracking-wider mb-2">👥 Jumlah Kelompok yang Bermain:</label>
@@ -369,31 +405,66 @@
                   </select>
                 </div>
 
-                <div>
-                  <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pilih Preset Teks BKSN:</label>
-                  <select id="presetSelect" onchange="onPresetChange()" class="w-full p-3.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-400">
+                <!-- SELEKTOR PRESET & PINTASAN PERIKOP BKSN -->
+                <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <label class="block text-xs font-bold text-sky-400 uppercase tracking-wider">📖 Pilih Preset / Perikop Matius 18:15-20:</label>
+                    <button onclick="addCustomPreset()" class="text-xs bg-sky-950/80 hover:bg-sky-900 border border-sky-500/40 text-sky-300 font-bold px-3 py-1.5 rounded-lg transition cursor-pointer">
+                      ➕ Tambah Preset Custom
+                    </button>
+                  </div>
+                  
+                  <select id="presetSelect" onchange="onPresetChange()" class="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-400">
                     <option value="">Memuat preset...</option>
                   </select>
+
+                  <!-- PINTASAN AYAT ANGKAT PERIKOP (QUICK PICKER) -->
+                  <div>
+                    <span class="block text-[11px] text-slate-400 mb-2 font-medium">⚡ Pintasan Cepat Pilih Ayat Perikop BKSN:</span>
+                    <div class="flex flex-wrap gap-2">
+                      <button onclick="quickSelectVerse('p1')" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">📜 Mat 18:15 (Teguran 4 Mata)</button>
+                      <button onclick="quickSelectVerse('p2')" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">📜 Mat 18:16 (Dua Tiga Saksi)</button>
+                      <button onclick="quickSelectVerse('p3')" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">📜 Mat 18:17 (Jemaat)</button>
+                      <button onclick="quickSelectVerse('p4')" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">📜 Mat 18:18 (Terikat/Terlepas)</button>
+                      <button onclick="quickSelectVerse('p5')" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">📜 Mat 18:19-20 (Nama-Ku)</button>
+                      <button onclick="quickSelectVerse('p6')" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-[11px] text-amber-300 px-3 py-1.5 rounded-lg font-mono transition cursor-pointer">🔀 Set Beda Ayat A-F</button>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- CONTAINER INPUT TEKS PER KELOMPOK -->
                 <div>
-                  <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Kalimat Pesan Bisikan Per Kelompok:</label>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Kalimat Pesan Bisikan Per Kelompok (Bisa Diedit Bebas):</label>
                   <div id="adminGroupInputsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
 
-                <div class="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                  <input type="checkbox" id="checkSecret" onchange="toggleSecretVisibility(this.checked)" ${!localSession.show_secret ? 'checked' : ''} class="w-4 h-4 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500 cursor-pointer">
-                  <label for="checkSecret" class="text-xs text-slate-300 font-medium cursor-pointer">Sembunyikan Kalimat Rahasia di Layar Host</label>
+                <!-- TOGGLE SEMBUNYIKAN KALIMAT RAHASIA + INDIKATOR STATUS -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <div class="flex items-center space-x-3">
+                    <input type="checkbox" id="checkSecret" onchange="toggleSecretVisibility(this.checked)" ${!localSession.show_secret ? 'checked' : ''} class="w-5 h-5 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500 cursor-pointer">
+                    <label for="checkSecret" class="text-xs sm:text-sm text-slate-200 font-bold cursor-pointer">Sembunyikan Kalimat Rahasia di Layar Host</label>
+                  </div>
+
+                  <div id="secretStatusBadge" class="p-3 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${!localSession.show_secret ? 'bg-amber-950/60 border border-amber-500/40 text-amber-300' : 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-300'}">
+                    <span>${!localSession.show_secret ? '🔒 STATUS SAAT INI: Kalimat Rahasia TERSEMBUNYI di Layar Host (Ditampilkan sebagai ••••••••)' : '👁️ STATUS SAAT INI: Kalimat Rahasia TERLIHAT EKSPLISIT di Layar Host'}</span>
+                  </div>
                 </div>
 
-                <div class="flex flex-col sm:flex-row gap-3">
-                  <button onclick="startSession()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition cursor-pointer text-xs uppercase tracking-wider">
-                    ▶ MULAI SESI GAME BARU
+                <!-- TOMBOL-TOMBOL AKSI SESI -->
+                <div class="space-y-3 pt-2">
+                  <button onclick="saveAndApplySettings()" class="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-black py-4 rounded-2xl transition cursor-pointer text-xs uppercase tracking-wider shadow-lg shadow-sky-500/20 active:scale-98 flex items-center justify-center space-x-2">
+                    <svg class="w-4 h-4 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    <span>💾 SIMPAN & TERAPKAN PENGATURAN KE LAYAR HOST (LIVE)</span>
                   </button>
-                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3.5 rounded-xl transition cursor-pointer text-xs">
-                    ↺ Reset Jawaban Game
-                  </button>
+
+                  <div class="flex flex-col sm:flex-row gap-3">
+                    <button onclick="startSession()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition cursor-pointer text-xs uppercase tracking-wider shadow">
+                      ▶ MULAI SESI GAME BARU (RESET JAWABAN)
+                    </button>
+                    <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3.5 rounded-xl transition cursor-pointer text-xs">
+                      ↺ Reset Jawaban Game
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -435,19 +506,63 @@ alter table game_session disable row level security;
       let currentPresets = DEFAULT_PRESETS;
 
       async function loadPresetsAdmin() {
+        const savedCustoms = JSON.parse(localStorage.getItem('bksn_custom_presets') || '[]');
+        currentPresets = [...DEFAULT_PRESETS, ...savedCustoms];
+
         if (supabaseClient) {
-          const { data } = await supabaseClient.from('presets').select('*');
-          if (data && data.length > 0) currentPresets = data;
+          try {
+            const { data } = await supabaseClient.from('presets').select('*');
+            if (data && data.length > 0) {
+              currentPresets = data;
+            }
+          } catch(e){}
         }
         
         const select = document.getElementById('presetSelect');
-        select.innerHTML = '';
-        currentPresets.forEach(p => {
-          select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
-        });
+        if (select) {
+          select.innerHTML = '';
+          currentPresets.forEach(p => {
+            select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
+          });
+        }
 
         onGroupCountChange();
       }
+
+      window.quickSelectVerse = function(presetId) {
+        const select = document.getElementById('presetSelect');
+        if (select) {
+          select.value = presetId;
+          onPresetChange();
+        }
+      };
+
+      window.addCustomPreset = function() {
+        const judul = prompt('Masukkan Judul Preset Baru (misal: Pertemuan 3 - Refleksi Khusus):');
+        if (!judul) return;
+        const teks = prompt('Masukkan Kalimat Pesan Bisikan Rahasia:');
+        if (!teks) return;
+
+        const newId = 'custom_' + Date.now();
+        const newPreset = {
+          id: newId,
+          judul: judul,
+          teks_a: teks, teks_b: teks, teks_c: teks, teks_d: teks, teks_e: teks, teks_f: teks
+        };
+
+        const savedCustoms = JSON.parse(localStorage.getItem('bksn_custom_presets') || '[]');
+        savedCustoms.push(newPreset);
+        localStorage.setItem('bksn_custom_presets', JSON.stringify(savedCustoms));
+
+        currentPresets.push(newPreset);
+        loadPresetsAdmin();
+
+        setTimeout(() => {
+          quickSelectVerse(newId);
+        }, 100);
+
+        alert('✓ Preset custom baru berhasil ditambahkan!');
+      };
 
       window.onGroupCountChange = function() {
         const countSelect = document.getElementById('groupCountSelect');
@@ -475,10 +590,12 @@ alter table game_session disable row level security;
       };
 
       window.onPresetChange = function() {
-        const id = document.getElementById('presetSelect').value;
+        const select = document.getElementById('presetSelect');
+        if (!select) return;
+        const id = select.value;
         const p = currentPresets.find(item => item.id == id);
         if (p) {
-          const count = parseInt(document.getElementById('groupCountSelect').value);
+          const count = parseInt(document.getElementById('groupCountSelect').value || '2');
           const activeGroups = GROUP_THEMES.slice(0, count);
           activeGroups.forEach(g => {
             const inputEl = document.getElementById(`adminTeks_${g.name}`);
@@ -511,6 +628,19 @@ alter table game_session disable row level security;
         localSession.show_secret = !shouldHide;
         localStorage.setItem('bksn_show_secret', shouldHide ? 'false' : 'true');
 
+        const badge = document.getElementById('secretStatusBadge');
+        if (badge) {
+          if (shouldHide) {
+            badge.className = 'p-3 rounded-xl text-xs font-bold transition flex items-center space-x-2 bg-amber-950/60 border border-amber-500/40 text-amber-300';
+            badge.innerHTML = '<span>🔒 STATUS SAAT INI: Kalimat Rahasia TERSEMBUNYI di Layar Host (Ditampilkan sebagai ••••••••)</span>';
+          } else {
+            badge.className = 'p-3 rounded-xl text-xs font-bold transition flex items-center space-x-2 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300';
+            badge.innerHTML = '<span>👁️ STATUS SAAT INI: Kalimat Rahasia TERLIHAT EKSPLISIT di Layar Host</span>';
+          }
+        }
+
+        broadcastSessionUpdate(localSession);
+
         if (supabaseClient) {
           try {
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
@@ -528,6 +658,59 @@ alter table game_session disable row level security;
             console.error(e);
           }
         }
+      };
+
+      window.saveAndApplySettings = async function() {
+        const countSelect = document.getElementById('groupCountSelect');
+        const count = countSelect ? parseInt(countSelect.value) : (localSession.group_count || 2);
+        const hideSecret = document.getElementById('checkSecret')?.checked ?? !localSession.show_secret;
+        const presetId = document.getElementById('presetSelect')?.value || localSession.preset_id;
+
+        const activeGroups = GROUP_THEMES.slice(0, count);
+        const teksData = {};
+        let hasEmpty = false;
+
+        activeGroups.forEach(g => {
+          const val = (document.getElementById(`adminTeks_${g.name}`)?.value || '').trim();
+          if (!val) hasEmpty = true;
+          teksData[g.name] = val;
+        });
+
+        if (hasEmpty) return alert('Kalimat pesan untuk semua kelompok tidak boleh ada yang kosong!');
+
+        const showSecret = !hideSecret;
+        localSession.show_secret = showSecret;
+        localSession.group_count = count;
+        localSession.teks_data = teksData;
+        localSession.preset_id = presetId;
+
+        localStorage.setItem('bksn_show_secret', showSecret ? 'true' : 'false');
+        localStorage.setItem('bksn_group_count', count.toString());
+        localStorage.setItem('bksn_teks_data', JSON.stringify(teksData));
+
+        broadcastSessionUpdate(localSession);
+
+        const payload = {
+          id: 1,
+          preset_id: presetId,
+          group_count: count,
+          teks_data: teksData,
+          hasil_data: localSession.hasil_data || {},
+          teks_a: teksData['A'] || '',
+          teks_b: teksData['B'] || '',
+          status: localSession.status || 'idle',
+          show_secret: showSecret
+        };
+
+        if (supabaseClient) {
+          try {
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {
+            console.error(e);
+          }
+        }
+
+        alert('✓ Pengaturan kalimat & mode rahasia berhasil disimpan & langsung diterapkan ke Layar Host!');
       };
 
       window.startSession = async function() {
@@ -570,6 +753,9 @@ alter table game_session disable row level security;
           show_secret: showSecret
         };
 
+        localSession = { ...localSession, ...payload };
+        broadcastSessionUpdate(localSession);
+
         if (supabaseClient) {
           try {
             await supabaseClient.from('game_session').upsert(payload);
@@ -578,7 +764,6 @@ alter table game_session disable row level security;
           }
         }
 
-        localSession = { ...localSession, ...payload };
         alert(`Sesi game baru untuk ${count} Kelompok berhasil dimulai!`);
       };
 
@@ -598,12 +783,14 @@ alter table game_session disable row level security;
           hasil_b: ''
         };
 
+        localSession = { ...localSession, ...payload };
+        broadcastSessionUpdate(localSession);
+
         if (supabaseClient) {
           try {
             await supabaseClient.from('game_session').upsert(payload);
           } catch(e) {}
         }
-        localSession = { ...localSession, ...payload };
         alert('Jawaban semua kelompok telah direset!');
       };
 
@@ -770,6 +957,31 @@ alter table game_session disable row level security;
       // Realtime Fetch & Subscribe Host
       async function initHost() {
         renderGameHostUI(localSession);
+
+        // LISTENER LOCAL CROSS-TAB SYNC (BROADCAST & STORAGE EVENT)
+        if (syncChannel) {
+          syncChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'SESSION_UPDATE') {
+              localSession = { ...localSession, ...event.data.session };
+              renderGameHostUI(localSession);
+            }
+          };
+        }
+
+        window.addEventListener('storage', (e) => {
+          if (e.key === 'bksn_show_secret') {
+            localSession.show_secret = e.newValue === 'true';
+            renderGameHostUI(localSession);
+          }
+          if (e.key === 'bksn_teks_data') {
+            try { localSession.teks_data = JSON.parse(e.newValue); } catch(err){}
+            renderGameHostUI(localSession);
+          }
+          if (e.key === 'bksn_group_count') {
+            localSession.group_count = parseInt(e.newValue || '2');
+            renderGameHostUI(localSession);
+          }
+        });
 
         if (!supabaseClient) return;
 
