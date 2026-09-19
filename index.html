@@ -1,1 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KataBerantai — BKSN 2026 Pertemuan 3</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen font-sans flex flex-col items-center p-4">
 
+  <!-- KONFIGURASI SUPABASE (GANTI DI SINI) -->
+  <script>
+    const SUPABASE_URL = "GANTI_DENGAN_PROJECT_URL_MU";
+    const SUPABASE_KEY = "GANTI_DENGAN_ANON_KEY_MU";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  </script>
+
+  <!-- CONTAINER UTAMA -->
+  <div id="app" class="w-full max-w-4xl"></div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get('role');
+    const group = urlParams.get('group');
+
+    // UTILS: Kalkulasi Akurasi & Diff Kata
+    function calcAccuracy(original, result) {
+      if (!result) return 0;
+      const origWords = original.trim().toLowerCase().split(/\s+/);
+      const resWords = result.trim().toLowerCase().split(/\s+/);
+      let matchCount = 0;
+      origWords.forEach((word, idx) => {
+        if (resWords[idx] === word) matchCount++;
+      });
+      return Math.round((matchCount / origWords.length) * 100);
+    }
+
+    function renderDiff(original, result) {
+      if (!result) return '<span class="text-slate-500 italic">Belum ada jawaban...</span>';
+      const origWords = original.trim().split(/\s+/);
+      const resWords = result.trim().split(/\s+/);
+      return origWords.map((word, idx) => {
+        const resWord = resWords[idx] || '';
+        if (word.toLowerCase() === resWord.toLowerCase()) {
+          return `<span class="text-emerald-400 font-bold mr-1">${resWord}</span>`;
+        } else {
+          return `<span class="text-rose-400 font-bold line-through mr-1">${resWord || '___'}</span>`;
+        }
+      }).join(' ');
+    }
+
+    // 1. TAMPILAN PLAYER (HP PEMAIN A / B)
+    if (role === 'player') {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl max-w-md mx-auto mt-10 text-center">
+          <h1 class="text-2xl font-black text-amber-400 mb-2">KELOMPOK ${group}</h1>
+          <p class="text-sm text-slate-400 mb-6">Utusan Terakhir: Ketik pesan yang kamu dengar dari bisikan berantai!</p>
+          <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl text-white text-lg focus:outline-none focus:border-amber-400 mb-4" placeholder="Ketik pesan di sini..."></textarea>
+          <button onclick="submitAnswer()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition">KIRIM JAWABAN</button>
+          <p id="statusMsg" class="mt-4 text-sm font-semibold text-emerald-400 hidden">✓ Jawaban berhasil dikirim!</p>
+        </div>
+      `;
+
+      async function submitAnswer() {
+        const text = document.getElementById('playerInput').value;
+        if (!text) return alert('Ketik pesan terlebih dahulu!');
+        const field = group === 'A' ? 'hasil_a' : 'hasil_b';
+        const { error } = await supabase.from('game_session').update({ [field]: text, status: 'finished' }).eq('id', 1);
+        if (!error) {
+          document.getElementById('statusMsg').classList.remove('hidden');
+        }
+      }
+    }
+
+    // 2. TAMPILAN ADMIN CMS
+    else if (role === 'admin') {
+      const pin = prompt('Masukkan PIN Admin:');
+      if (pin !== '1234') { alert('PIN Salah!'); window.location.href = 'index.html'; }
+      
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 max-w-lg mx-auto mt-6">
+          <h1 class="text-xl font-bold text-amber-400 mb-4">Panel Admin BKSN</h1>
+          <label class="block text-sm text-slate-400 mb-2">Pilih Preset Teks BKSN:</label>
+          <select id="presetSelect" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white mb-4"></select>
+          <button onclick="startSession()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl mb-3">Mulai Sesi Permainan</button>
+          <button onclick="resetSession()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl">Reset Permainan</button>
+        </div>
+      `;
+
+      async function loadPresets() {
+        const { data } = await supabase.from('presets').select('*');
+        const select = document.getElementById('presetSelect');
+        data.forEach(p => {
+          select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
+        });
+      }
+      loadPresets();
+
+      async function startSession() {
+        const presetId = document.getElementById('presetSelect').value;
+        const { data } = await supabase.from('presets').select('*').eq('id', presetId).single();
+        await supabase.from('game_session').update({
+          preset_id: presetId,
+          teks_a: data.teks_a,
+          teks_b: data.teks_b,
+          hasil_a: '',
+          hasil_b: '',
+          status: 'playing'
+        }).eq('id', 1);
+        alert('Sesi Dimulai!');
+      }
+
+      async function resetSession() {
+        await supabase.from('game_session').update({ status: 'idle', hasil_a: '', hasil_b: '' }).eq('id', 1);
+        alert('Sesi Direset!');
+      }
+    }
+
+    // 3. TAMPILAN UTAMA / IPAD HOST
+    else {
+      const app = document.getElementById('app');
+      
+      function renderHost(session) {
+        const accA = calcAccuracy(session.teks_a || '', session.hasil_a || '');
+        const accB = calcAccuracy(session.teks_b || '', session.hasil_b || '');
+
+        app.innerHTML = `
+          <header class="text-center my-6">
+            <h1 class="text-3xl font-black text-amber-400 tracking-wider">KATA BERANTAI SIMULATOR</h1>
+            <p class="text-slate-400 text-sm">Pertemuan 3 BKSN 2026 — Matius 18:15–20</p>
+          </header>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- KELOMPOK A -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-sky-500/30 shadow-lg">
+              <div class="flex justify-between items-center mb-4">
+                <span class="text-xl font-bold text-sky-400">KELOMPOK A</span>
+                <span class="bg-sky-950 text-sky-400 text-xs px-3 py-1 rounded-full font-bold">Akurasi: ${accA}%</span>
+              </div>
+              <div class="mb-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
+                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${session.teks_a || 'Belum dimulai'}</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
+                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(session.teks_a || '', session.hasil_a || '')}</div>
+              </div>
+            </div>
+
+            <!-- KELOMPOK B -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-emerald-500/30 shadow-lg">
+              <div class="flex justify-between items-center mb-4">
+                <span class="text-xl font-bold text-emerald-400">KELOMPOK B</span>
+                <span class="bg-emerald-950 text-emerald-400 text-xs px-3 py-1 rounded-full font-bold">Akurasi: ${accB}%</span>
+              </div>
+              <div class="mb-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
+                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${session.teks_b || 'Belum dimulai'}</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
+                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(session.teks_b || '', session.hasil_b || '')}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PESAN REFLEKSI BKSN -->
+          <div class="bg-amber-950/40 border border-amber-500/30 p-6 rounded-2xl text-center">
+            <h3 class="text-amber-400 font-bold mb-1">💡 Refleksi Pesan Berantai</h3>
+            <p class="text-sm text-slate-300">
+              Pesan mudah sekali berubah/bias saat disampaikan dari mulut ke mulut. 
+              Gunakan prinsip <strong class="text-white">Teguran 4 Mata (Mat 18:15)</strong>—konfirmasi langsung secara pribadi agar tidak menjadi desas-desus atau gosip di lingkungan.
+            </p>
+          </div>
+        `;
+
+        if (session.status === 'finished') {
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        }
+      }
+
+      // Realtime Fetch & Subscribe
+      async function initHost() {
+        const { data } = await supabase.from('game_session').select('*').eq('id', 1).single();
+        if (data) renderHost(data);
+
+        supabase.channel('game_channel')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_session' }, payload => {
+            renderHost(payload.new);
+          })
+          .subscribe();
+      }
+      initHost();
+    }
+  </script>
+</body>
+</html>
