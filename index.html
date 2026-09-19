@@ -38,30 +38,17 @@
   </script>
 
   <!-- CONTAINER UTAMA -->
-  <div id="app" class="w-full max-w-5xl"></div>
+  <div id="app" class="w-full max-w-6xl"></div>
 
-  <!-- MODAL QR CODE STATIS KATA BERANTAI -->
+  <!-- MODAL QR CODE STATIS KATA BERANTAI (DINAMIS UNTUK N KELOMPOK) -->
   <div id="qrModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
-    <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative shadow-2xl">
+    <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-3xl w-full text-center relative shadow-2xl max-h-[90vh] overflow-y-auto">
       <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer transition">✕</button>
 
       <h3 class="text-xl font-black text-amber-400 mb-1">Scan QR Utusan Terakhir</h3>
-      <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP utusan terakhir kelompok A & B ke QR Code ini</p>
+      <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP utusan terakhir dari setiap kelompok ke QR Code berikut</p>
 
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <!-- QR A -->
-        <div class="bg-slate-900 p-4 rounded-2xl border border-sky-500/30 flex flex-col items-center">
-          <span class="text-xs font-black text-sky-400 mb-2">KELOMPOK A</span>
-          <div id="qrcodeA" class="bg-white p-2.5 rounded-xl mb-3 flex items-center justify-center min-h-[126px] min-w-[126px]"></div>
-          <a id="linkPlayerA" href="#" target="_blank" class="text-[11px] text-sky-400 hover:underline font-mono">Buka Link Pemain A</a>
-        </div>
-        <!-- QR B -->
-        <div class="bg-slate-900 p-4 rounded-2xl border border-emerald-500/30 flex flex-col items-center">
-          <span class="text-xs font-black text-emerald-400 mb-2">KELOMPOK B</span>
-          <div id="qrcodeB" class="bg-white p-2.5 rounded-xl mb-3 flex items-center justify-center min-h-[126px] min-w-[126px]"></div>
-          <a id="linkPlayerB" href="#" target="_blank" class="text-[11px] text-emerald-400 hover:underline font-mono">Buka Link Pemain B</a>
-        </div>
-      </div>
+      <div id="qrGridContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6"></div>
 
       <button onclick="toggleQRModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer">
         Tutup QR Modal
@@ -74,25 +61,47 @@
     const role = urlParams.get('role');
     const group = (urlParams.get('group') || 'A').toUpperCase();
 
+    // DEFINISI TEMA & WARNA KELOMPOK (S/D 6 KELOMPOK)
+    const GROUP_THEMES = [
+      { name: 'A', label: 'Kelompok A', color: 'sky', borderClass: 'border-sky-500/30', textClass: 'text-sky-400', badgeClass: 'bg-sky-950/80 border-sky-500/40 text-sky-300', winnerBg: 'bg-sky-500/20 border-sky-400 text-sky-300' },
+      { name: 'B', label: 'Kelompok B', color: 'emerald', borderClass: 'border-emerald-500/30', textClass: 'text-emerald-400', badgeClass: 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300', winnerBg: 'bg-emerald-500/20 border-emerald-400 text-emerald-300' },
+      { name: 'C', label: 'Kelompok C', color: 'amber', borderClass: 'border-amber-500/30', textClass: 'text-amber-400', badgeClass: 'bg-amber-950/80 border-amber-500/40 text-amber-300', winnerBg: 'bg-amber-500/20 border-amber-400 text-amber-300' },
+      { name: 'D', label: 'Kelompok D', color: 'rose', borderClass: 'border-rose-500/30', textClass: 'text-rose-400', badgeClass: 'bg-rose-950/80 border-rose-500/40 text-rose-300', winnerBg: 'bg-rose-500/20 border-rose-400 text-rose-300' },
+      { name: 'E', label: 'Kelompok E', color: 'purple', borderClass: 'border-purple-500/30', textClass: 'text-purple-400', badgeClass: 'bg-purple-950/80 border-purple-500/40 text-purple-300', winnerBg: 'bg-purple-500/20 border-purple-400 text-purple-300' },
+      { name: 'F', label: 'Kelompok F', color: 'indigo', borderClass: 'border-indigo-500/30', textClass: 'text-indigo-400', badgeClass: 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300', winnerBg: 'bg-indigo-500/20 border-indigo-400 text-indigo-300' }
+    ];
+
     // DEFAULT PRESETS GAME KATA BERANTAI
     const DEFAULT_PRESETS = [
       {
         id: 'p1',
         judul: 'Pertemuan 3 - Teguran 4 Mata (Mat 18:15)',
         teks_a: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
-        teks_b: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.'
+        teks_b: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
+        teks_c: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
+        teks_d: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
+        teks_e: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
+        teks_f: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.'
       },
       {
         id: 'p2',
         judul: 'Pertemuan 3 - Dua Tiga Orang (Mat 18:20)',
         teks_a: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
-        teks_b: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.'
+        teks_b: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
+        teks_c: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
+        teks_d: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
+        teks_e: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
+        teks_f: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.'
       },
       {
         id: 'p3',
         judul: 'Pertemuan 3 - Variasi Kelompok Beda Teks',
         teks_a: 'Jika ia mendengarkan bahasamu, engkau telah mendapat kembali saudaramu.',
-        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi.'
+        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi.',
+        teks_c: 'Supaya atas keterangan dua atau tiga orang saksi, perkara itu sah.',
+        teks_d: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
+        teks_e: 'Jika ia tidak mau mendengarkan jemaat, pandanglah dia sebagai orang yang tidak mengenal Allah.',
+        teks_f: 'Aku berkata kepadamu: Apa yang kamu ikat di dunia ini akan terikat di sorga.'
       }
     ];
 
@@ -103,13 +112,34 @@
     let localSession = {
       id: 1,
       preset_id: 'p1',
-      teks_a: DEFAULT_PRESETS[0].teks_a,
-      teks_b: DEFAULT_PRESETS[0].teks_b,
-      hasil_a: '',
-      hasil_b: '',
+      group_count: parseInt(localStorage.getItem('bksn_group_count') || '2'),
+      teks_data: JSON.parse(localStorage.getItem('bksn_teks_data') || JSON.stringify({
+        A: DEFAULT_PRESETS[0].teks_a,
+        B: DEFAULT_PRESETS[0].teks_b,
+        C: DEFAULT_PRESETS[0].teks_c,
+        D: DEFAULT_PRESETS[0].teks_d,
+        E: DEFAULT_PRESETS[0].teks_e,
+        F: DEFAULT_PRESETS[0].teks_f
+      })),
+      hasil_data: JSON.parse(localStorage.getItem('bksn_hasil_data') || JSON.stringify({ A: '', B: '', C: '', D: '', E: '', F: '' })),
       status: 'idle',
       show_secret: initialShowSecret
     };
+
+    // Helper get Teks & Hasil per Kelompok
+    function getGroupTeks(session, gName) {
+      if (session.teks_data && session.teks_data[gName]) return session.teks_data[gName];
+      if (gName === 'A') return session.teks_a || '';
+      if (gName === 'B') return session.teks_b || '';
+      return '';
+    }
+
+    function getGroupHasil(session, gName) {
+      if (session.hasil_data && session.hasil_data[gName]) return session.hasil_data[gName];
+      if (gName === 'A') return session.hasil_a || '';
+      if (gName === 'B') return session.hasil_b || '';
+      return '';
+    }
 
     // UTILS: Kalkulasi Akurasi & Distorsi
     function calcMetrics(original, result) {
@@ -159,24 +189,32 @@
       if (isHidden) {
         modal.classList.remove('hidden');
 
+        const container = document.getElementById('qrGridContainer');
+        if (!container) return;
+
+        const count = localSession.group_count || 2;
+        const activeGroups = GROUP_THEMES.slice(0, count);
+
         const baseUrl = window.location.origin + window.location.pathname;
-        const urlA = baseUrl + '?role=player&group=A';
-        const urlB = baseUrl + '?role=player&group=B';
 
-        const linkA = document.getElementById('linkPlayerA');
-        const linkB = document.getElementById('linkPlayerB');
-        if (linkA) linkA.href = urlA;
-        if (linkB) linkB.href = urlB;
+        container.innerHTML = activeGroups.map(g => `
+          <div class="bg-slate-900 p-3.5 rounded-2xl border ${g.borderClass} flex flex-col items-center">
+            <span class="text-xs font-black ${g.textClass} mb-2">${g.label.toUpperCase()}</span>
+            <div id="qrcode_${g.name}" class="bg-white p-2.5 rounded-xl mb-3 flex items-center justify-center min-h-[116px] min-w-[116px]"></div>
+            <a href="${baseUrl}?role=player&group=${g.name}" target="_blank" class="text-[11px] ${g.textClass} hover:underline font-mono">Link Pemain ${g.name}</a>
+          </div>
+        `).join('');
 
-        const qrA = document.getElementById('qrcodeA');
-        const qrB = document.getElementById('qrcodeB');
-
-        if (qrA && qrB && typeof QRCode !== 'undefined') {
-          qrA.innerHTML = '';
-          qrB.innerHTML = '';
-          new QRCode(qrA, { text: urlA, width: 110, height: 110 });
-          new QRCode(qrB, { text: urlB, width: 110, height: 110 });
-        }
+        setTimeout(() => {
+          activeGroups.forEach(g => {
+            const qrEl = document.getElementById(`qrcode_${g.name}`);
+            const url = `${baseUrl}?role=player&group=${g.name}`;
+            if (qrEl && typeof QRCode !== 'undefined') {
+              qrEl.innerHTML = '';
+              new QRCode(qrEl, { text: url, width: 100, height: 100 });
+            }
+          });
+        }, 50);
       } else {
         modal.classList.add('hidden');
       }
@@ -189,8 +227,8 @@
       renderPlayerGameUI();
 
       function renderPlayerGameUI() {
-        const isGroupA = group === 'A';
-        const themeColor = isGroupA ? 'sky' : 'emerald';
+        const themeObj = GROUP_THEMES.find(g => g.name === group) || GROUP_THEMES[0];
+        const themeColor = themeObj.color;
         
         const app = document.getElementById('app');
         app.innerHTML = `
@@ -230,37 +268,45 @@
           btn.disabled = true;
           btn.innerText = 'Mengirim...';
 
-          const field = group === 'B' ? 'hasil_b' : 'hasil_a';
+          const fieldKey = `hasil_${group.toLowerCase()}`;
 
           if (supabaseClient) {
             try {
               const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
               
+              const updatedHasilData = { ...(data?.hasil_data || localSession.hasil_data || {}) };
+              updatedHasilData[group] = text;
+
               const updatePayload = {
                 id: 1,
-                teks_a: data?.teks_a || localSession.teks_a,
-                teks_b: data?.teks_b || localSession.teks_b,
-                hasil_a: field === 'hasil_a' ? text : (data?.hasil_a || ''),
-                hasil_b: field === 'hasil_b' ? text : (data?.hasil_b || ''),
+                teks_data: data?.teks_data || localSession.teks_data,
+                hasil_data: updatedHasilData,
                 status: 'finished',
-                show_secret: data?.show_secret ?? localSession.show_secret
+                show_secret: data?.show_secret ?? localSession.show_secret,
+                group_count: data?.group_count || localSession.group_count || 2
               };
+
+              if (fieldKey === 'hasil_a' || fieldKey === 'hasil_b') {
+                updatePayload[fieldKey] = text;
+              }
 
               const { error } = await supabaseClient.from('game_session').upsert(updatePayload);
 
               if (error) {
-                alert('Gagal mengirim ke Supabase: ' + error.message);
-                btn.disabled = false;
-                btn.innerText = `KIRIM JAWABAN KELOMPOK ${group}`;
-                return;
+                console.error("Supabase upsert error:", error);
               }
             } catch (err) {
               console.error(err);
             }
           }
 
-          localSession[field] = text;
+          if (!localSession.hasil_data) localSession.hasil_data = {};
+          localSession.hasil_data[group] = text;
+          if (group === 'A') localSession.hasil_a = text;
+          if (group === 'B') localSession.hasil_b = text;
           localSession.status = 'finished';
+
+          localStorage.setItem('bksn_hasil_data', JSON.stringify(localSession.hasil_data));
 
           document.getElementById('statusMsg').classList.remove('hidden');
           btn.innerText = '✓ JAWABAN TERKIRIM';
@@ -299,7 +345,7 @@
             <div class="flex justify-between items-center pb-6 mb-6 border-b border-slate-800">
               <div>
                 <h1 class="text-2xl font-black text-amber-400">CMS Admin KataBerantai BKSN</h1>
-                <p class="text-xs text-slate-400">Pengaturan Preset Game, Kalimat Rahasia & Kontrol Sesi</p>
+                <p class="text-xs text-slate-400">Pengaturan Jumlah Kelompok, Preset Game & Kontrol Sesi</p>
               </div>
               <a href="index.html" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-bold px-4 py-2 rounded-xl transition">
                 ← Kembali ke Layar Utama
@@ -309,7 +355,20 @@
             <!-- KONTROL GAME KATA BERANTAI -->
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
               <h2 class="text-base font-bold text-sky-400 mb-4">🎮 Kontrol Game Kata Berantai</h2>
-              <div class="space-y-4">
+              
+              <div class="space-y-5">
+                <!-- PENGATURAN JUMLAH KELOMPOK -->
+                <div class="bg-amber-950/30 p-4 rounded-2xl border border-amber-500/30">
+                  <label class="block text-xs font-black text-amber-400 uppercase tracking-wider mb-2">👥 Jumlah Kelompok yang Bermain:</label>
+                  <select id="groupCountSelect" onchange="onGroupCountChange()" class="w-full sm:w-64 p-3 bg-slate-950 border border-amber-500/40 rounded-xl text-white text-sm font-bold focus:outline-none focus:border-amber-400 cursor-pointer">
+                    <option value="2" ${localSession.group_count === 2 ? 'selected' : ''}>2 Kelompok (A & B)</option>
+                    <option value="3" ${localSession.group_count === 3 ? 'selected' : ''}>3 Kelompok (A, B & C)</option>
+                    <option value="4" ${localSession.group_count === 4 ? 'selected' : ''}>4 Kelompok (A, B, C & D)</option>
+                    <option value="5" ${localSession.group_count === 5 ? 'selected' : ''}>5 Kelompok (A, B, C, D & E)</option>
+                    <option value="6" ${localSession.group_count === 6 ? 'selected' : ''}>6 Kelompok (A, B, C, D, E & F)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pilih Preset Teks BKSN:</label>
                   <select id="presetSelect" onchange="onPresetChange()" class="w-full p-3.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-400">
@@ -317,15 +376,10 @@
                   </select>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok A:</label>
-                    <textarea id="adminTeksA" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok B:</label>
-                    <textarea id="adminTeksB" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
-                  </div>
+                <!-- CONTAINER INPUT TEKS PER KELOMPOK -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Kalimat Pesan Bisikan Per Kelompok:</label>
+                  <div id="adminGroupInputsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
 
                 <div class="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
@@ -334,10 +388,10 @@
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3">
-                  <button onclick="startSession()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl transition cursor-pointer text-xs">
+                  <button onclick="startSession()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition cursor-pointer text-xs uppercase tracking-wider">
                     ▶ MULAI SESI GAME BARU
                   </button>
-                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3 rounded-xl transition cursor-pointer text-xs">
+                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3.5 rounded-xl transition cursor-pointer text-xs">
                     ↺ Reset Jawaban Game
                   </button>
                 </div>
@@ -360,12 +414,15 @@
 
             <!-- PANDUAN SQL SUPABASE -->
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ SQL Setup Supabase (Tabel Game Session)</h2>
-              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="4">
+              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ SQL Setup Supabase (Multi-Kelompok)</h2>
+              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="5">
 create table if not exists game_session (
-  id int primary key default 1, preset_id text, teks_a text, teks_b text,
-  hasil_a text, hasil_b text, status text, show_secret boolean default false
+  id int primary key default 1, preset_id text, group_count int default 2,
+  teks_data jsonb, hasil_data jsonb, status text, show_secret boolean default false
 );
+alter table game_session add column if not exists group_count int default 2;
+alter table game_session add column if not exists teks_data jsonb;
+alter table game_session add column if not exists hasil_data jsonb;
 alter table game_session disable row level security;
               </textarea>
             </div>
@@ -389,15 +446,47 @@ alter table game_session disable row level security;
           select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
         });
 
-        if (currentPresets.length > 0) onPresetChange();
+        onGroupCountChange();
       }
+
+      window.onGroupCountChange = function() {
+        const countSelect = document.getElementById('groupCountSelect');
+        const count = countSelect ? parseInt(countSelect.value) : (localSession.group_count || 2);
+        localSession.group_count = count;
+        localStorage.setItem('bksn_group_count', count.toString());
+
+        const container = document.getElementById('adminGroupInputsContainer');
+        if (!container) return;
+
+        const activeGroups = GROUP_THEMES.slice(0, count);
+        container.innerHTML = activeGroups.map(g => {
+          const val = getGroupTeks(localSession, g.name) || DEFAULT_PRESETS[0].teks_a;
+          return `
+            <div>
+              <label class="block text-xs font-bold ${g.textClass} uppercase tracking-wider mb-1">Teks ${g.label}:</label>
+              <textarea id="adminTeks_${g.name}" rows="2" class="w-full p-3 bg-slate-950 border ${g.borderClass} rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-400">${val}</textarea>
+            </div>
+          `;
+        }).join('');
+
+        if (document.getElementById('presetSelect')?.value) {
+          onPresetChange();
+        }
+      };
 
       window.onPresetChange = function() {
         const id = document.getElementById('presetSelect').value;
         const p = currentPresets.find(item => item.id == id);
         if (p) {
-          document.getElementById('adminTeksA').value = p.teks_a;
-          document.getElementById('adminTeksB').value = p.teks_b;
+          const count = parseInt(document.getElementById('groupCountSelect').value);
+          const activeGroups = GROUP_THEMES.slice(0, count);
+          activeGroups.forEach(g => {
+            const inputEl = document.getElementById(`adminTeks_${g.name}`);
+            if (inputEl) {
+              const key = `teks_${g.name.toLowerCase()}`;
+              inputEl.value = p[key] || p.teks_a || '';
+            }
+          });
         }
       };
 
@@ -428,10 +517,9 @@ alter table game_session disable row level security;
             const payload = {
               id: 1,
               preset_id: data?.preset_id || localSession.preset_id || '1',
-              teks_a: data?.teks_a || localSession.teks_a || '',
-              teks_b: data?.teks_b || localSession.teks_b || '',
-              hasil_a: data?.hasil_a || localSession.hasil_a || '',
-              hasil_b: data?.hasil_b || localSession.hasil_b || '',
+              group_count: localSession.group_count || 2,
+              teks_data: data?.teks_data || localSession.teks_data,
+              hasil_data: data?.hasil_data || localSession.hasil_data,
               status: data?.status || localSession.status || 'idle',
               show_secret: !shouldHide
             };
@@ -443,21 +531,39 @@ alter table game_session disable row level security;
       };
 
       window.startSession = async function() {
-        const teksA = document.getElementById('adminTeksA').value.trim();
-        const teksB = document.getElementById('adminTeksB').value.trim();
+        const count = parseInt(document.getElementById('groupCountSelect').value);
         const hideSecret = document.getElementById('checkSecret').checked;
         const presetId = document.getElementById('presetSelect').value;
 
-        if (!teksA || !teksB) return alert('Teks Kelompok A dan B tidak boleh kosong!');
+        const activeGroups = GROUP_THEMES.slice(0, count);
+        const teksData = {};
+        let hasEmpty = false;
+
+        activeGroups.forEach(g => {
+          const val = (document.getElementById(`adminTeks_${g.name}`)?.value || '').trim();
+          if (!val) hasEmpty = true;
+          teksData[g.name] = val;
+        });
+
+        if (hasEmpty) return alert('Kalimat pesan untuk semua kelompok tidak boleh ada yang kosong!');
 
         const showSecret = !hideSecret;
         localStorage.setItem('bksn_show_secret', showSecret ? 'true' : 'false');
+        localStorage.setItem('bksn_group_count', count.toString());
+        localStorage.setItem('bksn_teks_data', JSON.stringify(teksData));
+
+        const resetHasilData = {};
+        activeGroups.forEach(g => resetHasilData[g.name] = '');
+        localStorage.setItem('bksn_hasil_data', JSON.stringify(resetHasilData));
 
         const payload = {
           id: 1,
           preset_id: presetId,
-          teks_a: teksA,
-          teks_b: teksB,
+          group_count: count,
+          teks_data: teksData,
+          hasil_data: resetHasilData,
+          teks_a: teksData['A'] || '',
+          teks_b: teksData['B'] || '',
           hasil_a: '',
           hasil_b: '',
           status: 'playing',
@@ -465,20 +571,40 @@ alter table game_session disable row level security;
         };
 
         if (supabaseClient) {
-          await supabaseClient.from('game_session').upsert(payload);
+          try {
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {
+            console.error(e);
+          }
         }
 
         localSession = { ...localSession, ...payload };
-        alert('Sesi game berhasil dimulai!');
+        alert(`Sesi game baru untuk ${count} Kelompok berhasil dimulai!`);
       };
 
       window.resetSession = async function() {
-        const payload = { id: 1, status: 'idle', hasil_a: '', hasil_b: '' };
+        const count = localSession.group_count || 2;
+        const activeGroups = GROUP_THEMES.slice(0, count);
+        const resetHasilData = {};
+        activeGroups.forEach(g => resetHasilData[g.name] = '');
+
+        localStorage.setItem('bksn_hasil_data', JSON.stringify(resetHasilData));
+
+        const payload = {
+          id: 1,
+          status: 'idle',
+          hasil_data: resetHasilData,
+          hasil_a: '',
+          hasil_b: ''
+        };
+
         if (supabaseClient) {
-          await supabaseClient.from('game_session').upsert(payload);
+          try {
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {}
         }
         localSession = { ...localSession, ...payload };
-        alert('Sesi game direset!');
+        alert('Jawaban semua kelompok telah direset!');
       };
 
       initAdminPanel();
@@ -492,23 +618,59 @@ alter table game_session disable row level security;
 
       function renderGameHostUI(session) {
         const currentSession = session || localSession;
-        
-        const isFinished = currentSession.status === 'finished' || (currentSession.hasil_a && currentSession.hasil_b);
+        const count = currentSession.group_count || 2;
+        const activeGroups = GROUP_THEMES.slice(0, count);
+
+        let hasAnyAnswer = false;
+        let allFinished = true;
+        const metricsMap = {};
+
+        activeGroups.forEach(g => {
+          const orig = getGroupTeks(currentSession, g.name);
+          const res = getGroupHasil(currentSession, g.name);
+          if (res && res.trim() !== '') hasAnyAnswer = true;
+          else allFinished = false;
+
+          metricsMap[g.name] = calcMetrics(orig, res);
+        });
+
+        const isFinished = currentSession.status === 'finished' || hasAnyAnswer;
         const isSecretHidden = !currentSession.show_secret && !isFinished;
 
-        const metricsA = calcMetrics(currentSession.teks_a || '', currentSession.hasil_a || '');
-        const metricsB = calcMetrics(currentSession.teks_b || '', currentSession.hasil_b || '');
-
+        // HITUNG WINNER BADGE BILA HASIL SUDAH TERKUMPUL
         let winnerBadge = '';
-        if (isFinished && (currentSession.hasil_a || currentSession.hasil_b)) {
-          if (metricsA.accuracy > metricsB.accuracy) {
-            winnerBadge = `<div class="bg-sky-500/20 border border-sky-400 text-sky-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6 animate-bounce">🏆 WINNER: KELOMPOK A (Distorsi Terendah: ${metricsA.distortion}%)</div>`;
-          } else if (metricsB.accuracy > metricsA.accuracy) {
-            winnerBadge = `<div class="bg-emerald-500/20 border border-emerald-400 text-emerald-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6 animate-bounce">🏆 WINNER: KELOMPOK B (Distorsi Terendah: ${metricsB.distortion}%)</div>`;
-          } else {
-            winnerBadge = `<div class="bg-amber-500/20 border border-amber-400 text-amber-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6">🤝 HASIL SERI! (Akurasi Sama: ${metricsA.accuracy}%)</div>`;
+        if (hasAnyAnswer) {
+          let highestAccuracy = -1;
+          let winners = [];
+
+          activeGroups.forEach(g => {
+            const acc = metricsMap[g.name].accuracy;
+            const res = getGroupHasil(currentSession, g.name);
+            if (res && res.trim() !== '') {
+              if (acc > highestAccuracy) {
+                highestAccuracy = acc;
+                winners = [g];
+              } else if (acc === highestAccuracy) {
+                winners.push(g);
+              }
+            }
+          });
+
+          if (winners.length === 1) {
+            const w = winners[0];
+            const dist = metricsMap[w.name].distortion;
+            winnerBadge = `<div class="${w.winnerBg} px-4 py-2.5 rounded-2xl text-center font-black text-sm mb-6 animate-bounce shadow-lg">🏆 WINNER: ${w.label.toUpperCase()} (Distorsi Terendah: ${dist}%, Akurasi: ${highestAccuracy}%)</div>`;
+          } else if (winners.length > 1) {
+            const names = winners.map(w => w.label).join(' & ');
+            winnerBadge = `<div class="bg-amber-500/20 border border-amber-400 text-amber-300 px-4 py-2.5 rounded-2xl text-center font-black text-sm mb-6 shadow-lg">🤝 HASIL SERI: ${names} (Akurasi Sama: ${highestAccuracy}%)</div>`;
           }
         }
+
+        // TENTUKAN LAYOUT GRID SESUAI JUMLAH KELOMPOK
+        let gridColsClass = 'grid-cols-1 md:grid-cols-2';
+        if (count === 3) gridColsClass = 'grid-cols-1 md:grid-cols-3';
+        if (count === 4) gridColsClass = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+        if (count >= 5) gridColsClass = 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
 
         app.innerHTML = `
           <!-- HEADER BKSN -->
@@ -517,7 +679,7 @@ alter table game_session disable row level security;
               <div class="inline-flex items-center space-x-2 bg-amber-950/60 border border-amber-500/30 text-amber-400 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-2">
                 <span>BKSN 2026</span>
                 <span>•</span>
-                <span>Pertemuan 3</span>
+                <span>Pertemuan 3 (${count} KELOMPOK)</span>
               </div>
               <h1 class="text-3xl font-black text-amber-400 tracking-wide">KATABERANTAI SIMULATOR</h1>
               <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Pendalaman Kitab Suci — Matius 18:15–20</p>
@@ -535,75 +697,48 @@ alter table game_session disable row level security;
 
           ${winnerBadge}
 
-          <!-- DUAL GROUP SIDE-BY-SIDE CONTAINER -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <!-- KELOMPOK A -->
-            <div class="glass-card p-6 rounded-3xl border border-sky-500/30 shadow-xl relative overflow-hidden">
-              <div class="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-2xl pointer-events-none"></div>
+          <!-- DYNAMIC GROUP SIDE-BY-SIDE CONTAINER -->
+          <div class="grid ${gridColsClass} gap-5 mb-8">
+            ${activeGroups.map(g => {
+              const orig = getGroupTeks(currentSession, g.name);
+              const res = getGroupHasil(currentSession, g.name);
+              const m = metricsMap[g.name];
 
-              <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-800">
-                <div>
-                  <h3 class="text-xl font-black text-sky-400">KELOMPOK A</h3>
-                  <p class="text-xs text-slate-400">Tim Bisikan Pertama</p>
-                </div>
-                <div class="text-right">
-                  <span class="inline-block bg-sky-950/80 border border-sky-500/40 text-sky-300 text-xs px-3 py-1 rounded-full font-bold">
-                    Akurasi: ${metricsA.accuracy}%
-                  </span>
-                  <p class="text-[10px] text-slate-400 mt-1">Distorsi: ${metricsA.distortion}%</p>
-                </div>
-              </div>
+              return `
+                <div class="glass-card p-5 sm:p-6 rounded-3xl border ${g.borderClass} shadow-xl relative overflow-hidden flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+                      <div>
+                        <h3 class="text-lg font-black ${g.textClass}">${g.label.toUpperCase()}</h3>
+                        <p class="text-[11px] text-slate-400">Tim Bisikan</p>
+                      </div>
+                      <div class="text-right">
+                        <span class="inline-block ${g.badgeClass} text-xs px-2.5 py-0.5 rounded-full font-bold">
+                          Akurasi: ${m.accuracy}%
+                        </span>
+                        <p class="text-[10px] text-slate-400 mt-1">Distorsi: ${m.distortion}%</p>
+                      </div>
+                    </div>
 
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Teks Asli Pesan Bisikan:</label>
-                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 font-mono text-slate-200">
-                    ${isSecretHidden ? '••••••••••••••••••••••••••••••••••••••••' : (currentSession.teks_a || 'Belum diatur')}
+                    <div class="space-y-4">
+                      <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Teks Asli Pesan Bisikan:</label>
+                        <div class="bg-slate-900/90 p-3.5 rounded-2xl text-xs sm:text-sm border border-slate-800 font-mono text-slate-200">
+                          ${isSecretHidden ? '••••••••••••••••••••••••••••••••••••••••' : (orig || 'Belum diatur')}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hasil Teks Utusan Terakhir:</label>
+                        <div class="bg-slate-900/90 p-3.5 rounded-2xl text-xs sm:text-sm border border-slate-800 min-h-[75px] leading-relaxed">
+                          ${renderDiff(orig, res, isSecretHidden)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Hasil Teks Utusan Terakhir:</label>
-                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 min-h-[80px] leading-relaxed">
-                    ${renderDiff(currentSession.teks_a, currentSession.hasil_a, isSecretHidden)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- KELOMPOK B -->
-            <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 shadow-xl relative overflow-hidden">
-              <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
-
-              <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-800">
-                <div>
-                  <h3 class="text-xl font-black text-emerald-400">KELOMPOK B</h3>
-                  <p class="text-xs text-slate-400">Tim Bisikan Kedua</p>
-                </div>
-                <div class="text-right">
-                  <span class="inline-block bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-1 rounded-full font-bold">
-                    Akurasi: ${metricsB.accuracy}%
-                  </span>
-                  <p class="text-[10px] text-slate-400 mt-1">Distorsi: ${metricsB.distortion}%</p>
-                </div>
-              </div>
-
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Teks Asli Pesan Bisikan:</label>
-                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 font-mono text-slate-200">
-                    ${isSecretHidden ? '••••••••••••••••••••••••••••••••••••••••' : (currentSession.teks_b || 'Belum diatur')}
-                  </div>
-                </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Hasil Teks Utusan Terakhir:</label>
-                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 min-h-[80px] leading-relaxed">
-                    ${renderDiff(currentSession.teks_b, currentSession.hasil_b, isSecretHidden)}
-                  </div>
-                </div>
-              </div>
-            </div>
+              `;
+            }).join('')}
           </div>
 
           <!-- PESAN REFLEKSI BKSN MATIUS 18:15 -->
@@ -627,7 +762,7 @@ alter table game_session disable row level security;
           </footer>
         `;
 
-        if (isFinished && typeof confetti === 'function') {
+        if (hasAnyAnswer && typeof confetti === 'function') {
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
         }
       }
@@ -645,6 +780,15 @@ alter table game_session disable row level security;
               localSession = { ...localSession, ...data };
               if (data.show_secret !== undefined) {
                 localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
+              }
+              if (data.group_count) {
+                localStorage.setItem('bksn_group_count', data.group_count.toString());
+              }
+              if (data.teks_data) {
+                localStorage.setItem('bksn_teks_data', JSON.stringify(data.teks_data));
+              }
+              if (data.hasil_data) {
+                localStorage.setItem('bksn_hasil_data', JSON.stringify(data.hasil_data));
               }
               renderGameHostUI(localSession);
             }
@@ -664,6 +808,15 @@ alter table game_session disable row level security;
                 localSession = { ...localSession, ...payload.new };
                 if (payload.new.show_secret !== undefined) {
                   localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
+                }
+                if (payload.new.group_count) {
+                  localStorage.setItem('bksn_group_count', payload.new.group_count.toString());
+                }
+                if (payload.new.teks_data) {
+                  localStorage.setItem('bksn_teks_data', JSON.stringify(payload.new.teks_data));
+                }
+                if (payload.new.hasil_data) {
+                  localStorage.setItem('bksn_hasil_data', JSON.stringify(payload.new.hasil_data));
                 }
                 renderGameHostUI(localSession);
               }
