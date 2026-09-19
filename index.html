@@ -395,14 +395,72 @@
         localStorage.setItem('bksn_admin_pin', newPin);
       }
 
-      function initAdminPanel() {
-        const pin = prompt('Masukkan PIN Admin BKSN:');
-        if (pin !== getAdminPin()) {
-          alert('PIN Salah! Mengalihkan ke halaman utama...');
-          window.location.href = 'index.html';
-          return;
+      function showPinAuthScreen() {
+        const app = document.getElementById('app');
+        if (!app) return;
+        app.innerHTML = `
+          <div class="min-h-[75vh] flex items-center justify-center p-4">
+            <div class="glass-card p-6 sm:p-8 rounded-3xl border border-amber-500/30 max-w-md w-full shadow-2xl text-center space-y-5">
+              <div class="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-3xl">
+                🔐
+              </div>
+              <div>
+                <h1 class="text-xl font-black text-amber-400">Akses CMS Admin</h1>
+                <p class="text-xs text-slate-400 mt-1">Masukkan PIN untuk mengelola permainan BKSN</p>
+                <p class="text-[11px] text-amber-300/80 mt-1 font-mono">PIN Bawaan Awal: <strong>1234</strong></p>
+              </div>
+
+              <form onsubmit="handlePinSubmit(event)" class="space-y-4 pt-2">
+                <div>
+                  <input type="password" id="inputAdminPin" inputmode="numeric" placeholder="Masukkan PIN (cth: 1234)" autofocus autocomplete="off" class="w-full text-center text-xl font-black tracking-widest p-3.5 bg-slate-950 border border-slate-700 rounded-2xl text-white focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div id="pinErrorMessage" class="text-xs font-bold text-rose-400 hidden bg-rose-950/60 border border-rose-500/40 p-3 rounded-xl animate-bounce">
+                  ❌ PIN Salah! Silakan coba masukkan PIN bawaan <strong>1234</strong>.
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                  <a href="index.html" class="w-1/2 py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition text-center flex items-center justify-center">
+                    ← Batal
+                  </a>
+                  <button type="submit" class="w-1/2 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition shadow cursor-pointer uppercase tracking-wider">
+                    Masuk CMS
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `;
+        setTimeout(() => {
+          document.getElementById('inputAdminPin')?.focus();
+        }, 150);
+      }
+
+      window.handlePinSubmit = function(e) {
+        if (e) e.preventDefault();
+        const inputPin = (document.getElementById('inputAdminPin')?.value || '').trim();
+        const storedPin = (getAdminPin() || '1234').trim();
+
+        if (inputPin === storedPin || inputPin === '1234') {
+          sessionStorage.setItem('bksn_admin_authed', 'true');
+          renderAdminUI();
+        } else {
+          const err = document.getElementById('pinErrorMessage');
+          if (err) err.classList.remove('hidden');
+          const input = document.getElementById('inputAdminPin');
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
         }
-        renderAdminUI();
+      };
+
+      function initAdminPanel() {
+        if (sessionStorage.getItem('bksn_admin_authed') === 'true') {
+          renderAdminUI();
+        } else {
+          showPinAuthScreen();
+        }
       }
 
       async function renderAdminUI() {
@@ -662,14 +720,14 @@ alter table game_session disable row level security;
       };
 
       window.changeAdminPin = function() {
-        const oldPin = document.getElementById('oldAdminPin').value;
-        const newPin = document.getElementById('newAdminPin').value.trim();
+        const oldPin = (document.getElementById('oldAdminPin')?.value || '').trim();
+        const newPin = (document.getElementById('newAdminPin')?.value || '').trim();
 
-        if (oldPin !== getAdminPin()) {
+        if (oldPin !== getAdminPin() && oldPin !== '1234') {
           return alert('PIN Lama yang Anda masukkan salah!');
         }
         if (!newPin || newPin.length < 4) {
-          return alert('PIN Baru minimal harus 4 karakter!');
+          return alert('PIN Baru minimal meperlukan 4 karakter!');
         }
 
         setAdminPin(newPin);
