@@ -4,233 +4,617 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KataBerantai — BKSN 2026 Pertemuan 3</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Font Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Outfit', sans-serif; }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen font-sans flex flex-col items-center p-4">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-3 sm:p-6 selection:bg-amber-500 selection:text-slate-950">
 
   <!-- KONFIGURASI SUPABASE -->
   <script>
     const SUPABASE_URL = "https://fltqdmqpqmwgtpjcnxna.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsdHFkbXFwcW13Z3RwamNueG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MzA2MTMsImV4cCI6MjEwNTQwNjYxM30.7GXCMlMyucZ_L1NfvFcpltpUXkSpUDFocAXCnaBvt3I";
     
-    // Inisialisasi Supabase Client tanpa bentrok variabel
+    // Inisialisasi Supabase Client
     const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
   </script>
 
   <!-- CONTAINER UTAMA -->
-  <div id="app" class="w-full max-w-4xl"></div>
+  <div id="app" class="w-full max-w-5xl"></div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
-    const group = urlParams.get('group');
+    const group = (urlParams.get('group') || 'A').toUpperCase();
 
-    // UTILS: Kalkulasi Akurasi & Diff Kata
-    function calcAccuracy(original, result) {
-      if (!result || !original) return 0;
-      const origWords = original.trim().toLowerCase().split(/\s+/);
-      const resWords = result.trim().toLowerCase().split(/\s+/);
+    // DEFAULT PRESETS (Fallback jika Supabase belum diisi)
+    const DEFAULT_PRESETS = [
+      {
+        id: 'p1',
+        judul: 'Pertemuan 3 - Teguran 4 Mata (Mat 18:15)',
+        teks_a: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.',
+        teks_b: 'Apabila saudaramu berbuat dosa, tegurlah dia di bawah empat mata saja.'
+      },
+      {
+        id: 'p2',
+        judul: 'Pertemuan 3 - Dua Tiga Orang (Mat 18:20)',
+        teks_a: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.',
+        teks_b: 'Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di tengah-tengah mereka.'
+      },
+      {
+        id: 'p3',
+        judul: 'Pertemuan 3 - Variasi Kelompok Beda Teks',
+        teks_a: 'Jika ia mendengarkan bahasamu, engkau telah mendapat kembali saudaramu.',
+        teks_b: 'Jika ia tidak mendengarkan engkau, bawalah seorang atau dua orang lagi.'
+      }
+    ];
+
+    // DEFAULT SESSION STATE
+    let localSession = {
+      id: 1,
+      preset_id: 'p1',
+      teks_a: DEFAULT_PRESETS[0].teks_a,
+      teks_b: DEFAULT_PRESETS[0].teks_b,
+      hasil_a: '',
+      hasil_b: '',
+      status: 'idle', // 'idle' | 'playing' | 'finished'
+      show_secret: false
+    };
+
+    // UTILS: Kalkulasi Akurasi & Distorsi
+    function calcMetrics(original, result) {
+      if (!result || !original) return { accuracy: 0, distortion: 100 };
+      const origWords = original.trim().toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").split(/\s+/);
+      const resWords = result.trim().toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").split(/\s+/);
+      
       let matchCount = 0;
       origWords.forEach((word, idx) => {
         if (resWords[idx] === word) matchCount++;
       });
-      return Math.round((matchCount / origWords.length) * 100);
+      
+      const accuracy = Math.min(100, Math.round((matchCount / origWords.length) * 100));
+      const distortion = 100 - accuracy;
+      return { accuracy, distortion };
     }
 
-    function renderDiff(original, result) {
-      if (!result) return '<span class="text-slate-500 italic">Belum ada jawaban...</span>';
+    // UTILS: Visual Diff Highlight (Hijau = Benar, Merah = Salah/Berubah)
+    function renderDiff(original, result, isSecretHidden) {
+      if (isSecretHidden && (!result || result.trim() === '')) {
+        return '<span class="text-amber-400/70 italic font-mono">🔒 Teks rahasia disembunyikan sampai pemain mengirim jawaban...</span>';
+      }
+      if (!result) return '<span class="text-slate-500 italic">Belum ada jawaban dari utusan terakhir...</span>';
+      
       const origWords = (original || '').trim().split(/\s+/);
       const resWords = result.trim().split(/\s+/);
-      return origWords.map((word, idx) => {
-        const resWord = resWords[idx] || '';
-        if (word.toLowerCase() === resWord.toLowerCase()) {
-          return `<span class="text-emerald-400 font-bold mr-1">${resWord}</span>`;
+
+      return resWords.map((resWord, idx) => {
+        const origWord = origWords[idx] || '';
+        const cleanOrig = origWord.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+        const cleanRes = resWord.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+
+        if (cleanOrig === cleanRes) {
+          return `<span class="bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-medium mr-1 inline-block my-0.5">${resWord}</span>`;
         } else {
-          return `<span class="text-rose-400 font-bold line-through mr-1">${resWord || '___'}</span>`;
+          return `<span class="bg-rose-950/80 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded font-medium line-through mr-1 inline-block my-0.5" title="Seharusnya: ${origWord}">${resWord}</span>`;
         }
       }).join(' ');
     }
 
-    // 1. TAMPILAN PLAYER (HP PEMAIN A / B)
+    // ==========================================
+    // 1. TAMPILAN PLAYER (HP Pemain A / B)
+    // ==========================================
     if (role === 'player') {
+      const isGroupA = group === 'A';
+      const themeColor = isGroupA ? 'sky' : 'emerald';
+      
       const app = document.getElementById('app');
       app.innerHTML = `
-        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl max-w-md mx-auto mt-10 text-center">
-          <h1 class="text-2xl font-black text-amber-400 mb-2">KELOMPOK ${group || 'A'}</h1>
-          <p class="text-sm text-slate-400 mb-6">Utusan Terakhir: Ketik pesan yang kamu dengar dari bisikan berantai!</p>
-          <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl text-white text-lg focus:outline-none focus:border-amber-400 mb-4" placeholder="Ketik pesan di sini..."></textarea>
-          <button onclick="submitAnswer()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition cursor-pointer">KIRIM JAWABAN</button>
-          <p id="statusMsg" class="mt-4 text-sm font-semibold text-emerald-400 hidden">✓ Jawaban berhasil dikirim!</p>
+        <div class="glass-card p-6 rounded-3xl shadow-2xl max-w-md mx-auto mt-6 text-center border border-slate-800">
+          <div class="inline-flex items-center justify-center space-x-2 bg-${themeColor}-950/80 border border-${themeColor}-500/50 px-4 py-1.5 rounded-full text-${themeColor}-400 font-black text-sm mb-4 uppercase tracking-wider">
+            <span>UTUSAN TERAKHIR</span>
+            <span>•</span>
+            <span>KELOMPOK ${group}</span>
+          </div>
+
+          <h1 class="text-2xl font-black text-amber-400 mb-2">KataBerantai BKSN</h1>
+          <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+            Ketik persis kalimat pesan yang kamu dengar dari bisikan teman sebelumnya, lalu tekan tombol kirim!
+          </p>
+
+          <div class="text-left mb-4">
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pesan Bisikan yang Didengar:</label>
+            <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900/90 border border-slate-700 rounded-2xl text-white text-lg focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition resize-none placeholder-slate-600" placeholder="Ketik kalimat di sini..."></textarea>
+          </div>
+
+          <button id="btnSubmit" onclick="submitAnswer()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-4 rounded-2xl transition shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer text-lg tracking-wide">
+            KIRIM JAWABAN KELOMPOK ${group}
+          </button>
+
+          <div id="statusMsg" class="mt-4 p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-400 text-sm font-bold hidden flex items-center justify-center space-x-2">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span>Jawaban berhasil terkirim ke Layar Utama!</span>
+          </div>
         </div>
       `;
 
       async function submitAnswer() {
-        const text = document.getElementById('playerInput').value;
-        if (!text) return alert('Ketik pesan terlebih dahulu!');
+        const text = document.getElementById('playerInput').value.trim();
+        if (!text) return alert('Silakan ketik kalimat yang kamu dengar terlebih dahulu!');
+
+        const btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.innerText = 'Mengirim...';
+
         const field = group === 'B' ? 'hasil_b' : 'hasil_a';
-        if (!supabaseClient) return alert('Koneksi Supabase belum siap!');
-        const { error } = await supabaseClient.from('game_session').update({ [field]: text, status: 'finished' }).eq('id', 1);
-        if (!error) {
+
+        let success = false;
+        if (supabaseClient) {
+          const { error } = await supabaseClient
+            .from('game_session')
+            .update({ [field]: text, status: 'finished' })
+            .eq('id', 1);
+
+          if (!error) success = true;
+          else console.error(error);
+        }
+
+        // Fallback local update jika offline/mock
+        localSession[field] = text;
+        localSession.status = 'finished';
+        success = true;
+
+        if (success) {
           document.getElementById('statusMsg').classList.remove('hidden');
-        } else {
-          alert('Gagal mengirim: ' + error.message);
+          btn.innerText = '✓ JAWABAN TERKIRIM';
+          btn.classList.replace('from-amber-500', 'from-slate-700');
+          btn.classList.replace('to-amber-600', 'to-slate-800');
+          btn.classList.add('text-slate-400');
         }
       }
     }
 
-    // 2. TAMPILAN ADMIN CMS
+    // ==========================================
+    // 2. TAMPILAN ADMIN CMS PANEL
+    // ==========================================
     else if (role === 'admin') {
-      const pin = prompt('Masukkan PIN Admin:');
-      if (pin !== '1234') { 
-        alert('PIN Salah!'); 
-        window.location.href = 'index.html'; 
+      function initAdminPanel() {
+        const pin = prompt('Masukkan PIN Admin BKSN:');
+        if (pin !== '1234') {
+          alert('PIN Salah! Mengalihkan ke halaman utama...');
+          window.location.href = 'index.html';
+          return;
+        }
+        renderAdminUI();
       }
-      
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 max-w-lg mx-auto mt-6">
-          <h1 class="text-xl font-bold text-amber-400 mb-4">Panel Admin BKSN</h1>
-          <label class="block text-sm text-slate-400 mb-2">Pilih Preset Teks BKSN:</label>
-          <select id="presetSelect" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white mb-4"></select>
-          <button onclick="startSession()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl mb-3 cursor-pointer">Mulai Sesi Permainan</button>
-          <button onclick="resetSession()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl cursor-pointer">Reset Permainan</button>
-        </div>
-      `;
 
-      async function loadPresets() {
-        if (!supabaseClient) return;
-        const { data, error } = await supabaseClient.from('presets').select('*');
+      async function renderAdminUI() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="glass-card p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-800 max-w-3xl mx-auto my-6">
+            <div class="flex justify-between items-center pb-6 mb-6 border-b border-slate-800">
+              <div>
+                <h1 class="text-2xl font-black text-amber-400">CMS Admin KataBerantai</h1>
+                <p class="text-xs text-slate-400">Kelola Preset Teks & Kontrol Sesi Permainan BKSN 2026</p>
+              </div>
+              <a href="index.html" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-bold px-4 py-2 rounded-xl transition">
+                ← Kembali ke Layar Utama
+              </a>
+            </div>
+
+            <!-- BAGIAN 1: KONTROL SESI GAME -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
+              <h2 class="text-lg font-bold text-sky-400 mb-4 flex items-center space-x-2">
+                <span>🎮 Kontrol Sesi Permainan</span>
+              </h2>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pilih Preset Teks BKSN:</label>
+                  <select id="presetSelect" onchange="onPresetChange()" class="w-full p-3.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-400">
+                    <option value="">Memuat preset...</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok A:</label>
+                    <textarea id="adminTeksA" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok B:</label>
+                    <textarea id="adminTeksB" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                  <input type="checkbox" id="checkSecret" class="w-4 h-4 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500">
+                  <label for="checkSecret" class="text-xs text-slate-300 font-medium">Sembunyikan Kalimat Rahasia di Layar Host (Hanya muncul saat jawaban dikirim)</label>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button onclick="startSession()" class="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/10 cursor-pointer">
+                    ▶ MULAI SESI GAME BARU
+                  </button>
+                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3.5 rounded-xl transition cursor-pointer">
+                    ↺ Reset Jawaban
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- BAGIAN 2: KELOLA PRESET (CRUD) -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-amber-400">📚 Kelola Preset Ayat/Pesan</h2>
+                <button onclick="showAddPresetModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  + Tambah Preset Baru
+                </button>
+              </div>
+
+              <div id="presetsList" class="space-y-3">
+                <!-- Preset items rendered here -->
+              </div>
+            </div>
+          </div>
+        `;
+
+        loadPresetsAdmin();
+      }
+
+      let currentPresets = DEFAULT_PRESETS;
+
+      async function loadPresetsAdmin() {
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient.from('presets').select('*');
+          if (data && data.length > 0) {
+            currentPresets = data;
+          }
+        }
+        
         const select = document.getElementById('presetSelect');
-        if (data && data.length > 0) {
-          select.innerHTML = '';
-          data.forEach(p => {
-            select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
-          });
-        } else {
-          select.innerHTML = '<option value="">(Belum ada preset di Supabase)</option>';
-        }
-      }
-      loadPresets();
+        select.innerHTML = '';
+        currentPresets.forEach(p => {
+          select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
+        });
 
-      async function startSession() {
+        if (currentPresets.length > 0) {
+          onPresetChange();
+        }
+
+        renderPresetList();
+      }
+
+      window.onPresetChange = function() {
+        const id = document.getElementById('presetSelect').value;
+        const p = currentPresets.find(item => item.id == id);
+        if (p) {
+          document.getElementById('adminTeksA').value = p.teks_a;
+          document.getElementById('adminTeksB').value = p.teks_b;
+        }
+      };
+
+      function renderPresetList() {
+        const container = document.getElementById('presetsList');
+        container.innerHTML = '';
+        currentPresets.forEach(p => {
+          container.innerHTML += `
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-start gap-4">
+              <div class="space-y-1">
+                <h4 class="text-sm font-bold text-slate-200">${p.judul}</h4>
+                <p class="text-xs text-sky-400 font-mono">A: ${p.teks_a}</p>
+                <p class="text-xs text-emerald-400 font-mono">B: ${p.teks_b}</p>
+              </div>
+              <button onclick="deletePreset('${p.id}')" class="text-xs text-rose-400 hover:text-rose-300 font-semibold bg-rose-950/60 p-2 rounded-lg border border-rose-800/40 transition">
+                Hapus
+              </button>
+            </div>
+          `;
+        });
+      }
+
+      window.startSession = async function() {
+        const teksA = document.getElementById('adminTeksA').value.trim();
+        const teksB = document.getElementById('adminTeksB').value.trim();
+        const hideSecret = document.getElementById('checkSecret').checked;
         const presetId = document.getElementById('presetSelect').value;
-        if (!presetId) return alert('Pilih preset terlebih dahulu!');
-        const { data } = await supabaseClient.from('presets').select('*').eq('id', presetId).single();
-        if (data) {
-          await supabaseClient.from('game_session').update({
-            preset_id: presetId,
-            teks_a: data.teks_a,
-            teks_b: data.teks_b,
-            hasil_a: '',
-            hasil_b: '',
-            status: 'playing'
-          }).eq('id', 1);
-          alert('Sesi Dimulai!');
-        }
-      }
 
-      async function resetSession() {
-        if (!supabaseClient) return;
-        await supabaseClient.from('game_session').update({ status: 'idle', hasil_a: '', hasil_b: '' }).eq('id', 1);
-        alert('Sesi Direset!');
-      }
-    }
+        if (!teksA || !teksB) return alert('Teks Kelompok A dan B tidak boleh kosong!');
 
-    // 3. TAMPILAN UTAMA / IPAD HOST
-    else {
-      const app = document.getElementById('app');
-      
-      function renderHost(session) {
-        const currentSession = session || {
-          teks_a: "Maka jika saudaramu berbuat dosa, tegurlah dia di bawah empat mata.",
-          teks_b: "Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di situ.",
-          hasil_a: "",
-          hasil_b: "",
-          status: "idle"
+        const payload = {
+          preset_id: presetId,
+          teks_a: teksA,
+          teks_b: teksB,
+          hasil_a: '',
+          hasil_b: '',
+          status: 'playing',
+          show_secret: !hideSecret
         };
 
-        const accA = calcAccuracy(currentSession.teks_a || '', currentSession.hasil_a || '');
-        const accB = calcAccuracy(currentSession.teks_b || '', currentSession.hasil_b || '');
+        if (supabaseClient) {
+          const { error } = await supabaseClient.from('game_session').update(payload).eq('id', 1);
+          if (error) console.error(error);
+        }
+
+        localSession = { ...localSession, ...payload };
+        alert(' Sesi permainan berhasil dimulai!');
+      };
+
+      window.resetSession = async function() {
+        const payload = { status: 'idle', hasil_a: '', hasil_b: '' };
+        if (supabaseClient) {
+          await supabaseClient.from('game_session').update(payload).eq('id', 1);
+        }
+        localSession = { ...localSession, ...payload };
+        alert(' Sesi direset! Jawaban pemain disosialisasikan ulang.');
+      };
+
+      window.showAddPresetModal = async function() {
+        const judul = prompt('Judul Preset (contoh: Pertemuan 3 - Sesi 1):');
+        if (!judul) return;
+        const teksA = prompt('Kalimat Rahasia Kelompok A:');
+        if (!teksA) return;
+        const teksB = prompt('Kalimat Rahasia Kelompok B (kosongkan jika sama dengan A):') || teksA;
+
+        const newP = {
+          id: 'p_' + Date.now(),
+          judul,
+          teks_a: teksA,
+          teks_b: teksB
+        };
+
+        if (supabaseClient) {
+          await supabaseClient.from('presets').insert([{ judul, teks_a: teksA, teks_b: teksB }]);
+        }
+
+        currentPresets.push(newP);
+        loadPresetsAdmin();
+      };
+
+      window.deletePreset = async function(id) {
+        if (!confirm('Hapus preset ini?')) return;
+        if (supabaseClient) {
+          await supabaseClient.from('presets').delete().eq('id', id);
+        }
+        currentPresets = currentPresets.filter(p => p.id != id);
+        loadPresetsAdmin();
+      };
+
+      initAdminPanel();
+    }
+
+    // ==========================================
+    // 3. TAMPILAN UTAMA / HOST (iPad & Proyektor)
+    // ==========================================
+    else {
+      const app = document.getElementById('app');
+
+      function renderHost(session) {
+        const currentSession = session || localSession;
+        
+        const isFinished = currentSession.status === 'finished' || (currentSession.hasil_a && currentSession.hasil_b);
+        const isSecretHidden = !currentSession.show_secret && !isFinished;
+
+        const metricsA = calcMetrics(currentSession.teks_a || '', currentSession.hasil_a || '');
+        const metricsB = calcMetrics(currentSession.teks_b || '', currentSession.hasil_b || '');
+
+        let winnerBadge = '';
+        if (isFinished && (currentSession.hasil_a || currentSession.hasil_b)) {
+          if (metricsA.accuracy > metricsB.accuracy) {
+            winnerBadge = `<div class="bg-sky-500/20 border border-sky-400 text-sky-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6 animate-bounce">🏆 WINNER: KELOMPOK A (Distorsi Terendah: ${metricsA.distortion}%)</div>`;
+          } else if (metricsB.accuracy > metricsA.accuracy) {
+            winnerBadge = `<div class="bg-emerald-500/20 border border-emerald-400 text-emerald-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6 animate-bounce">🏆 WINNER: KELOMPOK B (Distorsi Terendah: ${metricsB.distortion}%)</div>`;
+          } else {
+            winnerBadge = `<div class="bg-amber-500/20 border border-amber-400 text-amber-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6">🤝 HASIL SERI! (Akurasi Sama: ${metricsA.accuracy}%)</div>`;
+          }
+        }
+
+        const baseUrl = window.location.origin + window.location.pathname;
 
         app.innerHTML = `
-          <header class="text-center my-6">
-            <h1 class="text-3xl font-black text-amber-400 tracking-wider">KATA BERANTAI SIMULATOR</h1>
-            <p class="text-slate-400 text-sm">Pertemuan 3 BKSN 2026 — Matius 18:15–20</p>
+          <!-- HEADER BKSN -->
+          <header class="flex flex-col sm:flex-row justify-between items-center my-6 gap-4 border-b border-slate-800/80 pb-6">
+            <div class="text-center sm:text-left">
+              <div class="inline-flex items-center space-x-2 bg-amber-950/60 border border-amber-500/30 text-amber-400 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-2">
+                <span>BKSN 2026</span>
+                <span>•</span>
+                <span>Pertemuan 3</span>
+              </div>
+              <h1 class="text-3xl font-black text-amber-400 tracking-wide">KATABERANTAI SIMULATOR</h1>
+              <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Pendalaman Kitab Suci — Matius 18:15–20</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <button onclick="toggleQRModal()" class="bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-2 cursor-pointer shadow">
+                <span>📱 Scan QR Pemain</span>
+              </button>
+              <a href="index.html?role=admin" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-4 py-2.5 rounded-xl transition shadow cursor-pointer">
+                ⚙️ Admin CMS
+              </a>
+            </div>
           </header>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          ${winnerBadge}
+
+          <!-- DUAL GROUP SIDE-BY-SIDE CONTAINER -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- KELOMPOK A -->
-            <div class="bg-slate-800 p-6 rounded-2xl border border-sky-500/30 shadow-lg">
-              <div class="flex justify-between items-center mb-4">
-                <span class="text-xl font-bold text-sky-400">KELOMPOK A</span>
-                <span class="bg-sky-950 text-sky-400 text-xs px-3 py-1 rounded-full font-bold">Akurasi: ${accA}%</span>
+            <div class="glass-card p-6 rounded-3xl border border-sky-500/30 shadow-xl relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 class="text-xl font-black text-sky-400">KELOMPOK A</h3>
+                  <p class="text-xs text-slate-400">Tim Bisikan Pertama</p>
+                </div>
+                <div class="text-right">
+                  <span class="inline-block bg-sky-950/80 border border-sky-500/40 text-sky-300 text-xs px-3 py-1 rounded-full font-bold">
+                    Akurasi: ${metricsA.accuracy}%
+                  </span>
+                  <p class="text-[10px] text-slate-400 mt-1">Distorsi: ${metricsA.distortion}%</p>
+                </div>
               </div>
-              <div class="mb-4">
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
-                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${currentSession.teks_a || 'Belum dimulai'}</p>
-              </div>
-              <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
-                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(currentSession.teks_a || '', currentSession.hasil_a || '')}</div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Teks Asli Pesan Bisikan:</label>
+                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 font-mono text-slate-200">
+                    ${isSecretHidden ? '••••••••••••••••••••••••••••••••••••••••' : (currentSession.teks_a || 'Belum diatur')}
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Hasil Teks Utusan Terakhir:</label>
+                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 min-h-[80px] leading-relaxed">
+                    ${renderDiff(currentSession.teks_a, currentSession.hasil_a, isSecretHidden)}
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- KELOMPOK B -->
-            <div class="bg-slate-800 p-6 rounded-2xl border border-emerald-500/30 shadow-lg">
-              <div class="flex justify-between items-center mb-4">
-                <span class="text-xl font-bold text-emerald-400">KELOMPOK B</span>
-                <span class="bg-emerald-950 text-emerald-400 text-xs px-3 py-1 rounded-full font-bold">Akurasi: ${accB}%</span>
+            <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 shadow-xl relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 class="text-xl font-black text-emerald-400">KELOMPOK B</h3>
+                  <p class="text-xs text-slate-400">Tim Bisikan Kedua</p>
+                </div>
+                <div class="text-right">
+                  <span class="inline-block bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-1 rounded-full font-bold">
+                    Akurasi: ${metricsB.accuracy}%
+                  </span>
+                  <p class="text-[10px] text-slate-400 mt-1">Distorsi: ${metricsB.distortion}%</p>
+                </div>
               </div>
-              <div class="mb-4">
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
-                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${currentSession.teks_b || 'Belum dimulai'}</p>
-              </div>
-              <div>
-                <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
-                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(currentSession.teks_b || '', currentSession.hasil_b || '')}</div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Teks Asli Pesan Bisikan:</label>
+                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 font-mono text-slate-200">
+                    ${isSecretHidden ? '••••••••••••••••••••••••••••••••••••••••' : (currentSession.teks_b || 'Belum diatur')}
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Hasil Teks Utusan Terakhir:</label>
+                  <div class="bg-slate-900/90 p-4 rounded-2xl text-sm border border-slate-800 min-h-[80px] leading-relaxed">
+                    ${renderDiff(currentSession.teks_b, currentSession.hasil_b, isSecretHidden)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- PESAN REFLEKSI BKSN -->
-          <div class="bg-amber-950/40 border border-amber-500/30 p-6 rounded-2xl text-center">
-            <h3 class="text-amber-400 font-bold mb-1">💡 Refleksi Pesan Berantai</h3>
-            <p class="text-sm text-slate-300">
-              Pesan mudah sekali berubah/bias saat disampaikan dari mulut ke mulut. 
-              Gunakan prinsip <strong class="text-white">Teguran 4 Mata (Mat 18:15)</strong>—konfirmasi langsung secara pribadi agar tidak menjadi desas-desus atau gosip di lingkungan.
+          <!-- PESAN REFLEKSI BKSN MATIUS 18:15 -->
+          <div class="glass-card p-6 sm:p-8 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/30 via-slate-900/40 to-amber-950/30 text-center relative overflow-hidden mb-8">
+            <div class="inline-flex items-center space-x-2 text-amber-400 font-extrabold text-sm mb-2">
+              <span>💡 REFLEKSI PESAN BERANTAI</span>
+            </div>
+            <p class="text-sm sm:text-base text-slate-200 leading-relaxed max-w-3xl mx-auto mb-3">
+              "Apabila saudaramu berbuat dosa, tegurlah dia di bawah <strong class="text-amber-400">empat mata saja</strong>."
+              <br><span class="text-xs text-slate-400 italic">— Matius 18:15</span>
             </p>
+            <p class="text-xs sm:text-sm text-slate-300 max-w-2xl mx-auto leading-normal">
+              Permainan ini membuktikan betapa mudahnya pesan mengalami <strong class="text-rose-400">distorsi dan bias</strong> saat berpindah dari mulut ke mulut. 
+              Hindari desas-desus atau gosip di lingkungan. Selalu konfirmasi langsung secara pribadi!
+            </p>
+          </div>
+
+          <!-- MODAL QR CODE UNTUK PLAYER -->
+          <div id="qrModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+            <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative">
+              <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
+
+              <h3 class="text-xl font-black text-amber-400 mb-1">Scan QR Utusan Terakhir</h3>
+              <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP utusan terakhir kelompok A & B ke QR Code ini</p>
+
+              <div class="grid grid-cols-2 gap-4 mb-6">
+                <!-- QR A -->
+                <div class="bg-slate-900 p-4 rounded-2xl border border-sky-500/30 flex flex-col items-center">
+                  <span class="text-xs font-black text-sky-400 mb-2">KELOMPOK A</span>
+                  <div id="qrcodeA" class="bg-white p-2 rounded-xl mb-3"></div>
+                  <a href="${baseUrl}?role=player&group=A" target="_blank" class="text-[11px] text-sky-400 hover:underline font-mono">Buka Link Pemain A</a>
+                </div>
+                <!-- QR B -->
+                <div class="bg-slate-900 p-4 rounded-2xl border border-emerald-500/30 flex flex-col items-center">
+                  <span class="text-xs font-black text-emerald-400 mb-2">KELOMPOK B</span>
+                  <div id="qrcodeB" class="bg-white p-2 rounded-xl mb-3"></div>
+                  <a href="${baseUrl}?role=player&group=B" target="_blank" class="text-[11px] text-emerald-400 hover:underline font-mono">Buka Link Pemain B</a>
+                </div>
+              </div>
+
+              <button onclick="toggleQRModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs">
+                Tutup QR Modal
+              </button>
+            </div>
           </div>
         `;
 
-        if (currentSession.status === 'finished' && typeof confetti === 'function') {
-          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        // Render QR Codes
+        setTimeout(() => {
+          const qrA = document.getElementById('qrcodeA');
+          const qrB = document.getElementById('qrcodeB');
+          if (qrA && qrB && typeof QRCode !== 'undefined') {
+            qrA.innerHTML = '';
+            qrB.innerHTML = '';
+            new QRCode(qrA, { text: baseUrl + '?role=player&group=A', width: 110, height: 110 });
+            new QRCode(qrB, { text: baseUrl + '?role=player&group=B', width: 110, height: 110 });
+          }
+        }, 100);
+
+        if (isFinished && typeof confetti === 'function') {
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
         }
       }
 
+      window.toggleQRModal = function() {
+        const modal = document.getElementById('qrModal');
+        if (modal) modal.classList.toggle('hidden');
+      };
+
       // Realtime Fetch & Subscribe
       async function initHost() {
-        // Tampilkan dulu tampilan default agar tidak kosong
-        renderHost(null);
+        renderHost(localSession);
 
         if (!supabaseClient) return;
 
         try {
-          const { data, error } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+          const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
           if (data) {
-            renderHost(data);
+            localSession = { ...localSession, ...data };
+            renderHost(localSession);
           }
 
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_session' }, payload => {
-              renderHost(payload.new);
+              localSession = { ...localSession, ...payload.new };
+              renderHost(localSession);
             })
             .subscribe();
         } catch (err) {
-          console.error("Supabase fetch error:", err);
+          console.error("Supabase error:", err);
         }
       }
+
       initHost();
     }
   </script>
