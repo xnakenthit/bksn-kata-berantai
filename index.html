@@ -1057,12 +1057,14 @@ alter table game_session disable row level security;
           try {
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
+              const currentLocalSec = localStorage.getItem('bksn_show_secret');
               if (typeof data.show_secret === 'boolean') {
-                localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
-              } else {
-                delete data.show_secret;
+                if (currentLocalSec === null || data.show_secret === true) {
+                  localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
+                }
               }
-              localSession = { ...localSession, ...data };
+              const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (data.show_secret ?? localSession.show_secret);
+              localSession = { ...localSession, ...data, show_secret: keepShowSecret };
               if (data.group_count) {
                 localStorage.setItem('bksn_group_count', data.group_count.toString());
               }
@@ -1087,12 +1089,14 @@ alter table game_session disable row level security;
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
+                const currentLocalSec = localStorage.getItem('bksn_show_secret');
                 if (typeof payload.new.show_secret === 'boolean') {
-                  localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
-                } else {
-                  delete payload.new.show_secret;
+                  if (currentLocalSec === null || payload.new.show_secret === true) {
+                    localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
+                  }
                 }
-                localSession = { ...localSession, ...payload.new };
+                const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (payload.new.show_secret ?? localSession.show_secret);
+                localSession = { ...localSession, ...payload.new, show_secret: keepShowSecret };
                 if (payload.new.group_count) {
                   localStorage.setItem('bksn_group_count', payload.new.group_count.toString());
                 }
