@@ -10,11 +10,13 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen font-sans flex flex-col items-center p-4">
 
-  <!-- KONFIGURASI SUPABASE (GANTI DI SINI) -->
+  <!-- KONFIGURASI SUPABASE -->
   <script>
-    const SUPABASE_URL = "https://fltqdmqpqmwgtpjcnxna.supabase.co/rest/v1/";
+    const SUPABASE_URL = "https://fltqdmqpqmwgtpjcnxna.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsdHFkbXFwcW13Z3RwamNueG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MzA2MTMsImV4cCI6MjEwNTQwNjYxM30.7GXCMlMyucZ_L1NfvFcpltpUXkSpUDFocAXCnaBvt3I";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Inisialisasi Supabase Client tanpa bentrok variabel
+    const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
   </script>
 
   <!-- CONTAINER UTAMA -->
@@ -27,7 +29,7 @@
 
     // UTILS: Kalkulasi Akurasi & Diff Kata
     function calcAccuracy(original, result) {
-      if (!result) return 0;
+      if (!result || !original) return 0;
       const origWords = original.trim().toLowerCase().split(/\s+/);
       const resWords = result.trim().toLowerCase().split(/\s+/);
       let matchCount = 0;
@@ -39,7 +41,7 @@
 
     function renderDiff(original, result) {
       if (!result) return '<span class="text-slate-500 italic">Belum ada jawaban...</span>';
-      const origWords = original.trim().split(/\s+/);
+      const origWords = (original || '').trim().split(/\s+/);
       const resWords = result.trim().split(/\s+/);
       return origWords.map((word, idx) => {
         const resWord = resWords[idx] || '';
@@ -56,10 +58,10 @@
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl max-w-md mx-auto mt-10 text-center">
-          <h1 class="text-2xl font-black text-amber-400 mb-2">KELOMPOK ${group}</h1>
+          <h1 class="text-2xl font-black text-amber-400 mb-2">KELOMPOK ${group || 'A'}</h1>
           <p class="text-sm text-slate-400 mb-6">Utusan Terakhir: Ketik pesan yang kamu dengar dari bisikan berantai!</p>
           <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl text-white text-lg focus:outline-none focus:border-amber-400 mb-4" placeholder="Ketik pesan di sini..."></textarea>
-          <button onclick="submitAnswer()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition">KIRIM JAWABAN</button>
+          <button onclick="submitAnswer()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition cursor-pointer">KIRIM JAWABAN</button>
           <p id="statusMsg" class="mt-4 text-sm font-semibold text-emerald-400 hidden">✓ Jawaban berhasil dikirim!</p>
         </div>
       `;
@@ -67,10 +69,13 @@
       async function submitAnswer() {
         const text = document.getElementById('playerInput').value;
         if (!text) return alert('Ketik pesan terlebih dahulu!');
-        const field = group === 'A' ? 'hasil_a' : 'hasil_b';
-        const { error } = await supabase.from('game_session').update({ [field]: text, status: 'finished' }).eq('id', 1);
+        const field = group === 'B' ? 'hasil_b' : 'hasil_a';
+        if (!supabaseClient) return alert('Koneksi Supabase belum siap!');
+        const { error } = await supabaseClient.from('game_session').update({ [field]: text, status: 'finished' }).eq('id', 1);
         if (!error) {
           document.getElementById('statusMsg').classList.remove('hidden');
+        } else {
+          alert('Gagal mengirim: ' + error.message);
         }
       }
     }
@@ -78,7 +83,10 @@
     // 2. TAMPILAN ADMIN CMS
     else if (role === 'admin') {
       const pin = prompt('Masukkan PIN Admin:');
-      if (pin !== '1234') { alert('PIN Salah!'); window.location.href = 'index.html'; }
+      if (pin !== '1234') { 
+        alert('PIN Salah!'); 
+        window.location.href = 'index.html'; 
+      }
       
       const app = document.getElementById('app');
       app.innerHTML = `
@@ -86,36 +94,46 @@
           <h1 class="text-xl font-bold text-amber-400 mb-4">Panel Admin BKSN</h1>
           <label class="block text-sm text-slate-400 mb-2">Pilih Preset Teks BKSN:</label>
           <select id="presetSelect" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white mb-4"></select>
-          <button onclick="startSession()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl mb-3">Mulai Sesi Permainan</button>
-          <button onclick="resetSession()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl">Reset Permainan</button>
+          <button onclick="startSession()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl mb-3 cursor-pointer">Mulai Sesi Permainan</button>
+          <button onclick="resetSession()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl cursor-pointer">Reset Permainan</button>
         </div>
       `;
 
       async function loadPresets() {
-        const { data } = await supabase.from('presets').select('*');
+        if (!supabaseClient) return;
+        const { data, error } = await supabaseClient.from('presets').select('*');
         const select = document.getElementById('presetSelect');
-        data.forEach(p => {
-          select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
-        });
+        if (data && data.length > 0) {
+          select.innerHTML = '';
+          data.forEach(p => {
+            select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
+          });
+        } else {
+          select.innerHTML = '<option value="">(Belum ada preset di Supabase)</option>';
+        }
       }
       loadPresets();
 
       async function startSession() {
         const presetId = document.getElementById('presetSelect').value;
-        const { data } = await supabase.from('presets').select('*').eq('id', presetId).single();
-        await supabase.from('game_session').update({
-          preset_id: presetId,
-          teks_a: data.teks_a,
-          teks_b: data.teks_b,
-          hasil_a: '',
-          hasil_b: '',
-          status: 'playing'
-        }).eq('id', 1);
-        alert('Sesi Dimulai!');
+        if (!presetId) return alert('Pilih preset terlebih dahulu!');
+        const { data } = await supabaseClient.from('presets').select('*').eq('id', presetId).single();
+        if (data) {
+          await supabaseClient.from('game_session').update({
+            preset_id: presetId,
+            teks_a: data.teks_a,
+            teks_b: data.teks_b,
+            hasil_a: '',
+            hasil_b: '',
+            status: 'playing'
+          }).eq('id', 1);
+          alert('Sesi Dimulai!');
+        }
       }
 
       async function resetSession() {
-        await supabase.from('game_session').update({ status: 'idle', hasil_a: '', hasil_b: '' }).eq('id', 1);
+        if (!supabaseClient) return;
+        await supabaseClient.from('game_session').update({ status: 'idle', hasil_a: '', hasil_b: '' }).eq('id', 1);
         alert('Sesi Direset!');
       }
     }
@@ -125,8 +143,16 @@
       const app = document.getElementById('app');
       
       function renderHost(session) {
-        const accA = calcAccuracy(session.teks_a || '', session.hasil_a || '');
-        const accB = calcAccuracy(session.teks_b || '', session.hasil_b || '');
+        const currentSession = session || {
+          teks_a: "Maka jika saudaramu berbuat dosa, tegurlah dia di bawah empat mata.",
+          teks_b: "Sebab di mana dua atau tiga orang berkumpul dalam Nama-Ku, Aku ada di situ.",
+          hasil_a: "",
+          hasil_b: "",
+          status: "idle"
+        };
+
+        const accA = calcAccuracy(currentSession.teks_a || '', currentSession.hasil_a || '');
+        const accB = calcAccuracy(currentSession.teks_b || '', currentSession.hasil_b || '');
 
         app.innerHTML = `
           <header class="text-center my-6">
@@ -143,11 +169,11 @@
               </div>
               <div class="mb-4">
                 <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
-                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${session.teks_a || 'Belum dimulai'}</p>
+                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${currentSession.teks_a || 'Belum dimulai'}</p>
               </div>
               <div>
                 <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
-                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(session.teks_a || '', session.hasil_a || '')}</div>
+                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(currentSession.teks_a || '', currentSession.hasil_a || '')}</div>
               </div>
             </div>
 
@@ -159,11 +185,11 @@
               </div>
               <div class="mb-4">
                 <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Teks Asli Bisikan:</p>
-                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${session.teks_b || 'Belum dimulai'}</p>
+                <p class="text-slate-200 bg-slate-900 p-3 rounded-lg text-sm">${currentSession.teks_b || 'Belum dimulai'}</p>
               </div>
               <div>
                 <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Hasil Bisikan Terakhir:</p>
-                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(session.teks_b || '', session.hasil_b || '')}</div>
+                <div class="bg-slate-900 p-3 rounded-lg text-sm min-h-[60px]">${renderDiff(currentSession.teks_b || '', currentSession.hasil_b || '')}</div>
               </div>
             </div>
           </div>
@@ -178,21 +204,32 @@
           </div>
         `;
 
-        if (session.status === 'finished') {
+        if (currentSession.status === 'finished' && typeof confetti === 'function') {
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         }
       }
 
       // Realtime Fetch & Subscribe
       async function initHost() {
-        const { data } = await supabase.from('game_session').select('*').eq('id', 1).single();
-        if (data) renderHost(data);
+        // Tampilkan dulu tampilan default agar tidak kosong
+        renderHost(null);
 
-        supabase.channel('game_channel')
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_session' }, payload => {
-            renderHost(payload.new);
-          })
-          .subscribe();
+        if (!supabaseClient) return;
+
+        try {
+          const { data, error } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+          if (data) {
+            renderHost(data);
+          }
+
+          supabaseClient.channel('game_channel')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_session' }, payload => {
+              renderHost(payload.new);
+            })
+            .subscribe();
+        } catch (err) {
+          console.error("Supabase fetch error:", err);
+        }
       }
       initHost();
     }
