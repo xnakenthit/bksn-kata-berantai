@@ -69,7 +69,9 @@
       { name: 'D', label: 'Kelompok D', color: 'rose', borderClass: 'border-rose-500/30', textClass: 'text-rose-400', badgeClass: 'bg-rose-950/80 border-rose-500/40 text-rose-300', winnerBg: 'bg-rose-500/20 border-rose-400 text-rose-300' },
       { name: 'E', label: 'Kelompok E', color: 'purple', borderClass: 'border-purple-500/30', textClass: 'text-purple-400', badgeClass: 'bg-purple-950/80 border-purple-500/40 text-purple-300', winnerBg: 'bg-purple-500/20 border-purple-400 text-purple-300' },
       { name: 'F', label: 'Kelompok F', color: 'indigo', borderClass: 'border-indigo-500/30', textClass: 'text-indigo-400', badgeClass: 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300', winnerBg: 'bg-indigo-500/20 border-indigo-400 text-indigo-300' }
-        // BROADCAST CHANNEL UNTUK SYNC LOCAL CROSS-TAB
+    ];
+
+    // BROADCAST CHANNEL UNTUK SYNC LOCAL CROSS-TAB
     const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('bksn_game_sync') : null;
 
     function broadcastSessionUpdate(sessionData) {
@@ -104,7 +106,7 @@
         id: 'p3',
         judul: 'Mat 18:17 — Sampaikan Kepada Jemaat',
         teks_a: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
-        teks_b: 'Jika ia tidak mau mendengarkan meka, sampaikanlah kepada jemaat.',
+        teks_b: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
         teks_c: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
         teks_d: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
         teks_e: 'Jika ia tidak mau mendengarkan mereka, sampaikanlah kepada jemaat.',
@@ -160,6 +162,7 @@
       })),
       hasil_data: JSON.parse(localStorage.getItem('bksn_hasil_data') || JSON.stringify({ A: '', B: '', C: '', D: '', E: '', F: '' })),
       status: 'idle',
+      show_secret: initialShowSecret
     };
 
     // Helper get Teks & Hasil per Kelompok
@@ -1039,6 +1042,3 @@ alter table game_session disable row level security;
 
       initHost();
     }
-  </script>
-</body>
-</html>
