@@ -153,7 +153,9 @@
             <span>Jawaban berhasil terkirim ke Layar Utama!</span>
           </div>
         </div>
-         async function submitAnswer() {
+      `;
+
+      window.submitAnswer = async function() {
         const text = document.getElementById('playerInput').value.trim();
         if (!text) return alert('Silakan ketik kalimat yang kamu dengar terlebih dahulu!');
 
@@ -181,7 +183,7 @@
             const { error } = await supabaseClient.from('game_session').upsert(updatePayload);
 
             if (error) {
-              alert('Gagal mengirim ke Supabase: ' + error.message + '\n\nPetunjuk: Buka Admin CMS untuk melihat query SQL perbaikan RLS Supabase.');
+              alert('Gagal mengirim ke Supabase: ' + error.message);
               btn.disabled = false;
               btn.innerText = `KIRIM JAWABAN KELOMPOK ${group}`;
               return;
@@ -200,7 +202,7 @@
         btn.classList.replace('from-amber-500', 'from-slate-700');
         btn.classList.replace('to-amber-600', 'to-slate-800');
         btn.classList.add('text-slate-400');
-      }
+      };
     }
 
     // ==========================================
