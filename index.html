@@ -860,22 +860,6 @@ alter table game_session disable row level security;
     else {
       const app = document.getElementById('app');
 
-      window.toggleHostSecretVisibility = async function() {
-        const current = (localSession.show_secret === true || localSession.show_secret === 'true' || localStorage.getItem('bksn_show_secret') === 'true');
-        const next = !current;
-        localSession.show_secret = next;
-        localStorage.setItem('bksn_show_secret', next ? 'true' : 'false');
-        broadcastSessionUpdate(localSession);
-
-        if (supabaseClient) {
-          try {
-            await supabaseClient.from('game_session').upsert({ id: 1, show_secret: next });
-          } catch(e){}
-        }
-
-        renderGameHostUI(localSession);
-      };
-
       function renderGameHostUI(session) {
         const currentSession = session || localSession;
         const count = currentSession.group_count || 2;
@@ -894,9 +878,19 @@ alter table game_session disable row level security;
           metricsMap[g.name] = calcMetrics(orig, res);
         });
 
-        const showSecretBool = (currentSession.show_secret === true || currentSession.show_secret === 'true' || localStorage.getItem('bksn_show_secret') === 'true');
+        // TENTUKAN STATUS KERAHASIAN: Prioritas utama dari preferensi Admin (bksn_show_secret)
+        let isSecretHidden = false;
+        const storedSec = localStorage.getItem('bksn_show_secret');
+        if (storedSec !== null) {
+          isSecretHidden = (storedSec === 'false');
+        } else if (currentSession.show_secret !== undefined && currentSession.show_secret !== null) {
+          isSecretHidden = !currentSession.show_secret;
+        }
+
         const isFinished = currentSession.status === 'finished' || hasAnyAnswer;
-        const isSecretHidden = !showSecretBool && !isFinished;
+        if (isFinished) {
+          isSecretHidden = false;
+        }
 
         // HITUNG WINNER BADGE BILA HASIL SUDAH TERKUMPUL
         let winnerBadge = '';
@@ -946,10 +940,7 @@ alter table game_session disable row level security;
               <p class="text-slate-400 text-xs sm:text-sm mt-0.5">BKSN Pertemuan ke-3 Matius 18:15-20</p>
             </div>
 
-            <div class="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3">
-              <button onclick="toggleHostSecretVisibility()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow">
-                <span>${showSecretBool ? '👁️ Rahasia: TERLIHAT' : '🔒 Rahasia: TERSEMBUNYI'}</span>
-              </button>
+            <div class="flex items-center space-x-3">
               <button onclick="toggleQRModal()" class="bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-2 cursor-pointer shadow">
                 <span>📱 Scan QR Pemain</span>
               </button>
