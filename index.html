@@ -40,12 +40,41 @@
   <!-- CONTAINER UTAMA -->
   <div id="app" class="w-full max-w-5xl"></div>
 
+  <!-- MODAL QR CODE STATIS (DI LUAR APP - PERMANEN TANPA FLICKER) -->
+  <div id="qrModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+    <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative shadow-2xl">
+      <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer transition">✕</button>
+
+      <h3 class="text-xl font-black text-amber-400 mb-1">Scan QR Utusan Terakhir</h3>
+      <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP utusan terakhir kelompok A & B ke QR Code ini</p>
+
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <!-- QR A -->
+        <div class="bg-slate-900 p-4 rounded-2xl border border-sky-500/30 flex flex-col items-center">
+          <span class="text-xs font-black text-sky-400 mb-2">KELOMPOK A</span>
+          <div id="qrcodeA" class="bg-white p-2.5 rounded-xl mb-3 flex items-center justify-center min-h-[126px] min-w-[126px]"></div>
+          <a id="linkPlayerA" href="#" target="_blank" class="text-[11px] text-sky-400 hover:underline font-mono">Buka Link Pemain A</a>
+        </div>
+        <!-- QR B -->
+        <div class="bg-slate-900 p-4 rounded-2xl border border-emerald-500/30 flex flex-col items-center">
+          <span class="text-xs font-black text-emerald-400 mb-2">KELOMPOK B</span>
+          <div id="qrcodeB" class="bg-white p-2.5 rounded-xl mb-3 flex items-center justify-center min-h-[126px] min-w-[126px]"></div>
+          <a id="linkPlayerB" href="#" target="_blank" class="text-[11px] text-emerald-400 hover:underline font-mono">Buka Link Pemain B</a>
+        </div>
+      </div>
+
+      <button onclick="toggleQRModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer">
+        Tutup QR Modal
+      </button>
+    </div>
+  </div>
+
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
     const group = (urlParams.get('group') || 'A').toUpperCase();
 
-    // DEFAULT PRESETS (Fallback jika Supabase belum diisi)
+    // DEFAULT PRESETS
     const DEFAULT_PRESETS = [
       {
         id: 'p1',
@@ -75,7 +104,7 @@
       teks_b: DEFAULT_PRESETS[0].teks_b,
       hasil_a: '',
       hasil_b: '',
-      status: 'idle', // 'idle' | 'playing' | 'finished'
+      status: 'idle',
       show_secret: false
     };
 
@@ -117,6 +146,38 @@
         }
       }).join(' ');
     }
+
+    // FUNGSI TOGGLE QR MODAL (STATIS - HANYA RENDER QR SAAT DIBUKA)
+    window.toggleQRModal = function() {
+      const modal = document.getElementById('qrModal');
+      if (!modal) return;
+
+      const isHidden = modal.classList.contains('hidden');
+      if (isHidden) {
+        modal.classList.remove('hidden');
+
+        const baseUrl = window.location.origin + window.location.pathname;
+        const urlA = baseUrl + '?role=player&group=A';
+        const urlB = baseUrl + '?role=player&group=B';
+
+        const linkA = document.getElementById('linkPlayerA');
+        const linkB = document.getElementById('linkPlayerB');
+        if (linkA) linkA.href = urlA;
+        if (linkB) linkB.href = urlB;
+
+        const qrA = document.getElementById('qrcodeA');
+        const qrB = document.getElementById('qrcodeB');
+
+        if (qrA && qrB && typeof QRCode !== 'undefined') {
+          qrA.innerHTML = '';
+          qrB.innerHTML = '';
+          new QRCode(qrA, { text: urlA, width: 110, height: 110 });
+          new QRCode(qrB, { text: urlB, width: 110, height: 110 });
+        }
+      } else {
+        modal.classList.add('hidden');
+      }
+    };
 
     // ==========================================
     // 1. TAMPILAN PLAYER (HP Pemain A / B)
@@ -167,7 +228,6 @@
 
         if (supabaseClient) {
           try {
-            // Ambil data sesi terkini agar tidak menimpa hasil kelompok lain
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             
             const updatePayload = {
@@ -193,7 +253,6 @@
           }
         }
 
-        // Update lokal
         localSession[field] = text;
         localSession.status = 'finished';
 
@@ -436,7 +495,6 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
     // ==========================================
     else {
       const app = document.getElementById('app');
-      let isQRModalOpen = false;
 
       function renderHost(session) {
         const currentSession = session || localSession;
@@ -457,8 +515,6 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
             winnerBadge = `<div class="bg-amber-500/20 border border-amber-400 text-amber-300 px-4 py-2 rounded-xl text-center font-bold text-sm mb-6">🤝 HASIL SERI! (Akurasi Sama: ${metricsA.accuracy}%)</div>`;
           }
         }
-
-        const baseUrl = window.location.origin + window.location.pathname;
 
         app.innerHTML = `
           <!-- HEADER BKSN -->
@@ -570,62 +626,12 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
               Hindari desas-desus atau gosip di lingkungan. Selalu konfirmasi langsung secara pribadi!
             </p>
           </div>
-
-          <!-- MODAL QR CODE UNTUK PLAYER -->
-          <div id="qrModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md ${isQRModalOpen ? '' : 'hidden'} z-50 flex items-center justify-center p-4">
-            <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative">
-              <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
-
-              <h3 class="text-xl font-black text-amber-400 mb-1">Scan QR Utusan Terakhir</h3>
-              <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP utusan terakhir kelompok A & B ke QR Code ini</p>
-
-              <div class="grid grid-cols-2 gap-4 mb-6">
-                <!-- QR A -->
-                <div class="bg-slate-900 p-4 rounded-2xl border border-sky-500/30 flex flex-col items-center">
-                  <span class="text-xs font-black text-sky-400 mb-2">KELOMPOK A</span>
-                  <div id="qrcodeA" class="bg-white p-2 rounded-xl mb-3"></div>
-                  <a href="${baseUrl}?role=player&group=A" target="_blank" class="text-[11px] text-sky-400 hover:underline font-mono">Buka Link Pemain A</a>
-                </div>
-                <!-- QR B -->
-                <div class="bg-slate-900 p-4 rounded-2xl border border-emerald-500/30 flex flex-col items-center">
-                  <span class="text-xs font-black text-emerald-400 mb-2">KELOMPOK B</span>
-                  <div id="qrcodeB" class="bg-white p-2 rounded-xl mb-3"></div>
-                  <a href="${baseUrl}?role=player&group=B" target="_blank" class="text-[11px] text-emerald-400 hover:underline font-mono">Buka Link Pemain B</a>
-                </div>
-              </div>
-
-              <button onclick="toggleQRModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs">
-                Tutup QR Modal
-              </button>
-            </div>
-          </div>
         `;
-
-        // Render QR Codes jika modal sedang terbuka
-        setTimeout(() => {
-          const qrA = document.getElementById('qrcodeA');
-          const qrB = document.getElementById('qrcodeB');
-          if (qrA && qrB && typeof QRCode !== 'undefined') {
-            qrA.innerHTML = '';
-            qrB.innerHTML = '';
-            new QRCode(qrA, { text: baseUrl + '?role=player&group=A', width: 110, height: 110 });
-            new QRCode(qrB, { text: baseUrl + '?role=player&group=B', width: 110, height: 110 });
-          }
-        }, 50);
 
         if (isFinished && typeof confetti === 'function') {
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
         }
       }
-
-      window.toggleQRModal = function() {
-        isQRModalOpen = !isQRModalOpen;
-        const modal = document.getElementById('qrModal');
-        if (modal) {
-          if (isQRModalOpen) modal.classList.remove('hidden');
-          else modal.classList.add('hidden');
-        }
-      };
 
       // Realtime Fetch & Subscribe
       async function initHost() {
@@ -641,7 +647,6 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
               localSession = { ...localSession, ...data };
               renderHost(localSession);
             } else {
-              // Jika belum ada row id 1, inisialisasi otomatis via upsert
               await supabaseClient.from('game_session').upsert([
                 { id: 1, preset_id: 'p1', teks_a: DEFAULT_PRESETS[0].teks_a, teks_b: DEFAULT_PRESETS[0].teks_b, hasil_a: '', hasil_b: '', status: 'idle', show_secret: false }
               ]);
