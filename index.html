@@ -291,13 +291,14 @@
             <!-- BAGIAN 3: PANDUAN SQL SUPABASE -->
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
               <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ Troubleshooting Supabase (SQL Setup)</h2>
-              <p class="text-xs text-slate-400 mb-3">Jika pengiriman jawaban dari HP pemain tidak masuk, jalankan script ini di <strong>SQL Editor Supabase</strong> Anda:</p>
-              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="7">
+              <p class="text-xs text-slate-400 mb-3">Jika pengiriman jawaban dari HP pemain tidak masuk atau ada error kolom, jalankan script ini di <strong>SQL Editor Supabase</strong> Anda:</p>
+              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="8">
 create table if not exists game_session (
   id int primary key default 1,
   preset_id text, teks_a text, teks_b text,
   hasil_a text, hasil_b text, status text, show_secret boolean default false
 );
+alter table game_session add column if not exists show_secret boolean default false;
 alter table game_session disable row level security;
 insert into game_session (id, status, show_secret) values (1, 'idle', false) on conflict (id) do nothing;
               </textarea>
@@ -435,6 +436,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
     // ==========================================
     else {
       const app = document.getElementById('app');
+      let isQRModalOpen = false;
 
       function renderHost(session) {
         const currentSession = session || localSession;
@@ -570,7 +572,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           </div>
 
           <!-- MODAL QR CODE UNTUK PLAYER -->
-          <div id="qrModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+          <div id="qrModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md ${isQRModalOpen ? '' : 'hidden'} z-50 flex items-center justify-center p-4">
             <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative">
               <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
 
@@ -599,7 +601,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           </div>
         `;
 
-        // Render QR Codes
+        // Render QR Codes jika modal sedang terbuka
         setTimeout(() => {
           const qrA = document.getElementById('qrcodeA');
           const qrB = document.getElementById('qrcodeB');
@@ -609,7 +611,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
             new QRCode(qrA, { text: baseUrl + '?role=player&group=A', width: 110, height: 110 });
             new QRCode(qrB, { text: baseUrl + '?role=player&group=B', width: 110, height: 110 });
           }
-        }, 100);
+        }, 50);
 
         if (isFinished && typeof confetti === 'function') {
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
@@ -617,8 +619,12 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
       }
 
       window.toggleQRModal = function() {
+        isQRModalOpen = !isQRModalOpen;
         const modal = document.getElementById('qrModal');
-        if (modal) modal.classList.toggle('hidden');
+        if (modal) {
+          if (isQRModalOpen) modal.classList.remove('hidden');
+          else modal.classList.add('hidden');
+        }
       };
 
       // Realtime Fetch & Subscribe
