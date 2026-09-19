@@ -153,9 +153,7 @@
             <span>Jawaban berhasil terkirim ke Layar Utama!</span>
           </div>
         </div>
-      `;
-
-      async function submitAnswer() {
+         async function submitAnswer() {
         const text = document.getElementById('playerInput').value.trim();
         if (!text) return alert('Silakan ketik kalimat yang kamu dengar terlebih dahulu!');
 
@@ -165,29 +163,43 @@
 
         const field = group === 'B' ? 'hasil_b' : 'hasil_a';
 
-        let success = false;
         if (supabaseClient) {
-          const { error } = await supabaseClient
-            .from('game_session')
-            .update({ [field]: text, status: 'finished' })
-            .eq('id', 1);
+          try {
+            // Ambil data sesi terkini agar tidak menimpa hasil kelompok lain
+            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            
+            const updatePayload = {
+              id: 1,
+              teks_a: data?.teks_a || localSession.teks_a,
+              teks_b: data?.teks_b || localSession.teks_b,
+              hasil_a: field === 'hasil_a' ? text : (data?.hasil_a || ''),
+              hasil_b: field === 'hasil_b' ? text : (data?.hasil_b || ''),
+              status: 'finished',
+              show_secret: data?.show_secret ?? localSession.show_secret
+            };
 
-          if (!error) success = true;
-          else console.error(error);
+            const { error } = await supabaseClient.from('game_session').upsert(updatePayload);
+
+            if (error) {
+              alert('Gagal mengirim ke Supabase: ' + error.message + '\n\nPetunjuk: Buka Admin CMS untuk melihat query SQL perbaikan RLS Supabase.');
+              btn.disabled = false;
+              btn.innerText = `KIRIM JAWABAN KELOMPOK ${group}`;
+              return;
+            }
+          } catch (err) {
+            console.error(err);
+          }
         }
 
-        // Fallback local update jika offline/mock
+        // Update lokal
         localSession[field] = text;
         localSession.status = 'finished';
-        success = true;
 
-        if (success) {
-          document.getElementById('statusMsg').classList.remove('hidden');
-          btn.innerText = '✓ JAWABAN TERKIRIM';
-          btn.classList.replace('from-amber-500', 'from-slate-700');
-          btn.classList.replace('to-amber-600', 'to-slate-800');
-          btn.classList.add('text-slate-400');
-        }
+        document.getElementById('statusMsg').classList.remove('hidden');
+        btn.innerText = '✓ JAWABAN TERKIRIM';
+        btn.classList.replace('from-amber-500', 'from-slate-700');
+        btn.classList.replace('to-amber-600', 'to-slate-800');
+        btn.classList.add('text-slate-400');
       }
     }
 
@@ -261,7 +273,7 @@
             </div>
 
             <!-- BAGIAN 2: KELOLA PRESET (CRUD) -->
-            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
               <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-bold text-amber-400">📚 Kelola Preset Ayat/Pesan</h2>
                 <button onclick="showAddPresetModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-lg transition">
@@ -272,6 +284,21 @@
               <div id="presetsList" class="space-y-3">
                 <!-- Preset items rendered here -->
               </div>
+            </div>
+
+            <!-- BAGIAN 3: PANDUAN SQL SUPABASE -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ Troubleshooting Supabase (SQL Setup)</h2>
+              <p class="text-xs text-slate-400 mb-3">Jika pengiriman jawaban dari HP pemain tidak masuk, jalankan script ini di <strong>SQL Editor Supabase</strong> Anda:</p>
+              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="7">
+create table if not exists game_session (
+  id int primary key default 1,
+  preset_id text, teks_a text, teks_b text,
+  hasil_a text, hasil_b text, status text, show_secret boolean default false
+);
+alter table game_session disable row level security;
+insert into game_session (id, status, show_secret) values (1, 'idle', false) on conflict (id) do nothing;
+              </textarea>
             </div>
           </div>
         `;
@@ -339,6 +366,7 @@
         if (!teksA || !teksB) return alert('Teks Kelompok A dan B tidak boleh kosong!');
 
         const payload = {
+          id: 1,
           preset_id: presetId,
           teks_a: teksA,
           teks_b: teksB,
@@ -349,8 +377,8 @@
         };
 
         if (supabaseClient) {
-          const { error } = await supabaseClient.from('game_session').update(payload).eq('id', 1);
-          if (error) console.error(error);
+          const { error } = await supabaseClient.from('game_session').upsert(payload);
+          if (error) alert('Error Supabase: ' + error.message);
         }
 
         localSession = { ...localSession, ...payload };
@@ -358,12 +386,12 @@
       };
 
       window.resetSession = async function() {
-        const payload = { status: 'idle', hasil_a: '', hasil_b: '' };
+        const payload = { id: 1, status: 'idle', hasil_a: '', hasil_b: '' };
         if (supabaseClient) {
-          await supabaseClient.from('game_session').update(payload).eq('id', 1);
+          await supabaseClient.from('game_session').upsert(payload);
         }
         localSession = { ...localSession, ...payload };
-        alert(' Sesi direset! Jawaban pemain disosialisasikan ulang.');
+        alert(' Sesi direset! Jawaban pemain dibersihkan.');
       };
 
       window.showAddPresetModal = async function() {
@@ -597,21 +625,41 @@
 
         if (!supabaseClient) return;
 
-        try {
-          const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
-          if (data) {
-            localSession = { ...localSession, ...data };
-            renderHost(localSession);
-          }
-
-          supabaseClient.channel('game_channel')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_session' }, payload => {
-              localSession = { ...localSession, ...payload.new };
+        async function fetchSession() {
+          try {
+            const { data, error } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            if (error) console.error("Fetch error:", error);
+            if (data) {
+              localSession = { ...localSession, ...data };
               renderHost(localSession);
+            } else {
+              // Jika belum ada row id 1, inisialisasi otomatis via upsert
+              await supabaseClient.from('game_session').upsert([
+                { id: 1, preset_id: 'p1', teks_a: DEFAULT_PRESETS[0].teks_a, teks_b: DEFAULT_PRESETS[0].teks_b, hasil_a: '', hasil_b: '', status: 'idle', show_secret: false }
+              ]);
+            }
+          } catch (err) {
+            console.error("Supabase fetch error:", err);
+          }
+        }
+
+        await fetchSession();
+
+        // Auto polling setiap 2 detik sebagai penjamin sinkronisasi realtime
+        setInterval(fetchSession, 2000);
+
+        // Realtime Listener
+        try {
+          supabaseClient.channel('game_channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
+              if (payload.new) {
+                localSession = { ...localSession, ...payload.new };
+                renderHost(localSession);
+              }
             })
             .subscribe();
         } catch (err) {
-          console.error("Supabase error:", err);
+          console.error("Realtime subscription error:", err);
         }
       }
 
