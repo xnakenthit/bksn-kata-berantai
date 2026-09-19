@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KataBerantai — BKSN 2026 Pertemuan 3</title>
+  <title>KataBerantai & Refleksi Umat — BKSN 2026 Pertemuan 3</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Supabase JS SDK -->
@@ -40,7 +40,7 @@
   <!-- CONTAINER UTAMA -->
   <div id="app" class="w-full max-w-5xl"></div>
 
-  <!-- MODAL QR CODE STATIS (DI LUAR APP - PERMANEN TANPA FLICKER) -->
+  <!-- MODAL QR CODE STATIS KATA BERANTAI -->
   <div id="qrModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
     <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full text-center relative shadow-2xl">
       <button onclick="toggleQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer transition">✕</button>
@@ -69,12 +69,31 @@
     </div>
   </div>
 
+  <!-- MODAL QR CODE STATIS UNTUK REFLEKSI UMAT -->
+  <div id="qrReflectionModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+    <div class="glass-card p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-md w-full text-center relative shadow-2xl">
+      <button onclick="toggleQRReflectionModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer transition">✕</button>
+
+      <h3 class="text-xl font-black text-amber-400 mb-1">Scan QR Form Refleksi Umat</h3>
+      <p class="text-xs text-slate-400 mb-6">Arahkan kamera HP seluruh umat ke QR Code ini untuk mengisi tanggapan anonim</p>
+
+      <div class="bg-slate-900 p-6 rounded-2xl border border-amber-500/30 flex flex-col items-center mb-6">
+        <div id="qrcodeUmat" class="bg-white p-3 rounded-2xl mb-4 flex items-center justify-center min-h-[156px] min-w-[156px]"></div>
+        <a id="linkPlayerUmat" href="#" target="_blank" class="text-xs text-amber-400 hover:underline font-mono">Buka Form Input Umat</a>
+      </div>
+
+      <button onclick="toggleQRReflectionModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer">
+        Tutup QR Modal
+      </button>
+    </div>
+  </div>
+
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
     const group = (urlParams.get('group') || 'A').toUpperCase();
 
-    // DEFAULT PRESETS
+    // DEFAULT PRESETS GAME KATA BERANTAI
     const DEFAULT_PRESETS = [
       {
         id: 'p1',
@@ -96,7 +115,22 @@
       }
     ];
 
-    // DEFAULT SESSION STATE
+    // DEFAULT QUESTIONS & CATEGORIES REFLEKSI UMAT
+    let DEFAULT_QUESTIONS = [
+      { id: 'q1', teks: 'Bagaimana kita menerapkan prinsip Teguran 4 Mata (Mat 18:15) dalam kehidupan sehari-hari?' },
+      { id: 'q2', teks: 'Langkah konkret apa yang dapat kita lakukan untuk mencegah berkembangnya desas-desus/gosip?' }
+    ];
+
+    let DEFAULT_CATEGORIES = ['Keluarga', 'Lingkungan', 'Paroki', 'Masyarakat'];
+
+    let localReflectionAnswers = [
+      { id: 'a1', question_id: 'q1', category: 'Keluarga', jawaban: 'Saling mendengarkan secara pribadi tanpa emosi saat ada masalah.' },
+      { id: 'a2', question_id: 'q1', category: 'Lingkungan', jawaban: 'Menegur tetangga secara berbisik dan sopan tanpa membicarakannya di grup WA.' },
+      { id: 'a3', question_id: 'q2', category: 'Paroki', jawaban: 'Selalu melakukan klarifikasi (tabayyun) langsung ke pengurus seksi.' },
+      { id: 'a4', question_id: 'q2', category: 'Masyarakat', jawaban: 'Tidak ikut menyebarkan berita atau desas-desus yang belum tentu benar.' }
+    ];
+
+    // DEFAULT SESSION STATE (DILENGKAPI active_mode: 'game' | 'reflection')
     let localSession = {
       id: 1,
       preset_id: 'p1',
@@ -105,7 +139,8 @@
       hasil_a: '',
       hasil_b: '',
       status: 'idle',
-      show_secret: false
+      show_secret: false,
+      active_mode: 'game' // Default mode: 'game' (Kata Berantai) atau 'reflection' (Refleksi Umat)
     };
 
     // UTILS: Kalkulasi Akurasi & Distorsi
@@ -147,7 +182,7 @@
       }).join(' ');
     }
 
-    // FUNGSI TOGGLE QR MODAL (STATIS - HANYA RENDER QR SAAT DIBUKA)
+    // TOGGLE QR MODAL KATA BERANTAI
     window.toggleQRModal = function() {
       const modal = document.getElementById('qrModal');
       if (!modal) return;
@@ -179,98 +214,235 @@
       }
     };
 
+    // TOGGLE QR MODAL REFLEKSI UMAT
+    window.toggleQRReflectionModal = function() {
+      const modal = document.getElementById('qrReflectionModal');
+      if (!modal) return;
+
+      const isHidden = modal.classList.contains('hidden');
+      if (isHidden) {
+        modal.classList.remove('hidden');
+
+        const baseUrl = window.location.origin + window.location.pathname;
+        const urlUmat = baseUrl + '?role=player&mode=reflection';
+
+        const linkUmat = document.getElementById('linkPlayerUmat');
+        if (linkUmat) linkUmat.href = urlUmat;
+
+        const qrUmat = document.getElementById('qrcodeUmat');
+
+        if (qrUmat && typeof QRCode !== 'undefined') {
+          qrUmat.innerHTML = '';
+          new QRCode(qrUmat, { text: urlUmat, width: 140, height: 140 });
+        }
+      } else {
+        modal.classList.add('hidden');
+      }
+    };
+
     // ==========================================
-    // 1. TAMPILAN PLAYER (HP Pemain A / B)
+    // 1. TAMPILAN PLAYER (HP PEMAIN & HP UMAT)
     // ==========================================
     if (role === 'player') {
-      const isGroupA = group === 'A';
-      const themeColor = isGroupA ? 'sky' : 'emerald';
-      
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="glass-card p-6 rounded-3xl shadow-2xl max-w-md mx-auto mt-6 text-center border border-slate-800">
-          <div class="inline-flex items-center justify-center space-x-2 bg-${themeColor}-950/80 border border-${themeColor}-500/50 px-4 py-1.5 rounded-full text-${themeColor}-400 font-black text-sm mb-4 uppercase tracking-wider">
-            <span>UTUSAN TERAKHIR</span>
-            <span>•</span>
-            <span>KELOMPOK ${group}</span>
+      const playerMode = urlParams.get('mode') || (localSession.active_mode === 'reflection' ? 'reflection' : 'game');
+
+      // 1A. HP UMAT (FORM REFLEKSI ANONIM)
+      if (playerMode === 'reflection') {
+        renderPlayerReflectionUI();
+      } 
+      // 1B. HP PEMAIN (KATA BERANTAI SIMULATOR)
+      else {
+        renderPlayerGameUI();
+      }
+
+      function renderPlayerGameUI() {
+        const isGroupA = group === 'A';
+        const themeColor = isGroupA ? 'sky' : 'emerald';
+        
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="glass-card p-6 rounded-3xl shadow-2xl max-w-md mx-auto mt-6 text-center border border-slate-800">
+            <div class="inline-flex items-center justify-center space-x-2 bg-${themeColor}-950/80 border border-${themeColor}-500/50 px-4 py-1.5 rounded-full text-${themeColor}-400 font-black text-sm mb-4 uppercase tracking-wider">
+              <span>UTUSAN TERAKHIR</span>
+              <span>•</span>
+              <span>KELOMPOK ${group}</span>
+            </div>
+
+            <h1 class="text-2xl font-black text-amber-400 mb-2">KataBerantai BKSN</h1>
+            <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+              Ketik persis kalimat pesan yang kamu dengar dari bisikan teman sebelumnya, lalu tekan tombol kirim!
+            </p>
+
+            <div class="text-left mb-4">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pesan Bisikan yang Didengar:</label>
+              <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900/90 border border-slate-700 rounded-2xl text-white text-lg focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition resize-none placeholder-slate-600" placeholder="Ketik kalimat di sini..."></textarea>
+            </div>
+
+            <button id="btnSubmit" onclick="submitAnswer()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-4 rounded-2xl transition shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer text-lg tracking-wide">
+              KIRIM JAWABAN KELOMPOK ${group}
+            </button>
+
+            <div id="statusMsg" class="mt-4 p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-400 text-sm font-bold hidden flex items-center justify-center space-x-2">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+              <span>Jawaban berhasil terkirim ke Layar Utama!</span>
+            </div>
           </div>
+        `;
 
-          <h1 class="text-2xl font-black text-amber-400 mb-2">KataBerantai BKSN</h1>
-          <p class="text-sm text-slate-300 mb-6 leading-relaxed">
-            Ketik persis kalimat pesan yang kamu dengar dari bisikan teman sebelumnya, lalu tekan tombol kirim!
-          </p>
+        window.submitAnswer = async function() {
+          const text = document.getElementById('playerInput').value.trim();
+          if (!text) return alert('Silakan ketik kalimat yang kamu dengar terlebih dahulu!');
 
-          <div class="text-left mb-4">
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pesan Bisikan yang Didengar:</label>
-            <textarea id="playerInput" rows="4" class="w-full p-4 bg-slate-900/90 border border-slate-700 rounded-2xl text-white text-lg focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition resize-none placeholder-slate-600" placeholder="Ketik kalimat di sini..."></textarea>
-          </div>
+          const btn = document.getElementById('btnSubmit');
+          btn.disabled = true;
+          btn.innerText = 'Mengirim...';
 
-          <button id="btnSubmit" onclick="submitAnswer()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-4 rounded-2xl transition shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer text-lg tracking-wide">
-            KIRIM JAWABAN KELOMPOK ${group}
-          </button>
+          const field = group === 'B' ? 'hasil_b' : 'hasil_a';
 
-          <div id="statusMsg" class="mt-4 p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-400 text-sm font-bold hidden flex items-center justify-center space-x-2">
-            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            <span>Jawaban berhasil terkirim ke Layar Utama!</span>
-          </div>
-        </div>
-      `;
+          if (supabaseClient) {
+            try {
+              const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+              
+              const updatePayload = {
+                id: 1,
+                teks_a: data?.teks_a || localSession.teks_a,
+                teks_b: data?.teks_b || localSession.teks_b,
+                hasil_a: field === 'hasil_a' ? text : (data?.hasil_a || ''),
+                hasil_b: field === 'hasil_b' ? text : (data?.hasil_b || ''),
+                status: 'finished',
+                show_secret: data?.show_secret ?? localSession.show_secret,
+                active_mode: data?.active_mode || 'game'
+              };
 
-      window.submitAnswer = async function() {
-        const text = document.getElementById('playerInput').value.trim();
-        if (!text) return alert('Silakan ketik kalimat yang kamu dengar terlebih dahulu!');
+              const { error } = await supabaseClient.from('game_session').upsert(updatePayload);
 
-        const btn = document.getElementById('btnSubmit');
-        btn.disabled = true;
-        btn.innerText = 'Mengirim...';
-
-        const field = group === 'B' ? 'hasil_b' : 'hasil_a';
-
-        if (supabaseClient) {
-          try {
-            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
-            
-            const updatePayload = {
-              id: 1,
-              teks_a: data?.teks_a || localSession.teks_a,
-              teks_b: data?.teks_b || localSession.teks_b,
-              hasil_a: field === 'hasil_a' ? text : (data?.hasil_a || ''),
-              hasil_b: field === 'hasil_b' ? text : (data?.hasil_b || ''),
-              status: 'finished',
-              show_secret: data?.show_secret ?? localSession.show_secret
-            };
-
-            const { error } = await supabaseClient.from('game_session').upsert(updatePayload);
-
-            if (error) {
-              alert('Gagal mengirim ke Supabase: ' + error.message);
-              btn.disabled = false;
-              btn.innerText = `KIRIM JAWABAN KELOMPOK ${group}`;
-              return;
+              if (error) {
+                alert('Gagal mengirim ke Supabase: ' + error.message);
+                btn.disabled = false;
+                btn.innerText = `KIRIM JAWABAN KELOMPOK ${group}`;
+                return;
+              }
+            } catch (err) {
+              console.error(err);
             }
-          } catch (err) {
-            console.error(err);
           }
-        }
 
-        localSession[field] = text;
-        localSession.status = 'finished';
+          localSession[field] = text;
+          localSession.status = 'finished';
 
-        document.getElementById('statusMsg').classList.remove('hidden');
-        btn.innerText = '✓ JAWABAN TERKIRIM';
-        btn.classList.replace('from-amber-500', 'from-slate-700');
-        btn.classList.replace('to-amber-600', 'to-slate-800');
-        btn.classList.add('text-slate-400');
-      };
+          document.getElementById('statusMsg').classList.remove('hidden');
+          btn.innerText = '✓ JAWABAN TERKIRIM';
+          btn.classList.replace('from-amber-500', 'from-slate-700');
+          btn.classList.replace('to-amber-600', 'to-slate-800');
+          btn.classList.add('text-slate-400');
+        };
+      }
+
+      function renderPlayerReflectionUI() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="glass-card p-6 rounded-3xl shadow-2xl max-w-lg mx-auto mt-4 border border-slate-800">
+            <div class="text-center mb-6">
+              <div class="inline-flex items-center space-x-2 bg-amber-950/80 border border-amber-500/50 px-4 py-1.5 rounded-full text-amber-400 font-extrabold text-xs uppercase tracking-wider mb-2">
+                <span>🔒 FORM REFLEKSI ANONIM UMAT</span>
+              </div>
+              <h1 class="text-2xl font-black text-amber-400">Refleksi BKSN 2026</h1>
+              <p class="text-xs text-slate-300 mt-1">Sampaikan masukan & refleksi Anda secara jujur dan anonim (tanpa nama).</p>
+            </div>
+
+            <div class="space-y-5">
+              <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">1. Pilih Pertanyaan BKSN:</label>
+                <select id="refQuestionSelect" class="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-amber-400">
+                  ${DEFAULT_QUESTIONS.map(q => `<option value="${q.id}">${q.teks}</option>`).join('')}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">2. Pilih Kategori Refleksi:</label>
+                <div class="grid grid-cols-2 gap-2.5">
+                  ${DEFAULT_CATEGORIES.map((cat, idx) => `
+                    <label class="flex items-center space-x-2 bg-slate-900 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-amber-400/50 transition">
+                      <input type="radio" name="refCategory" value="${cat}" ${idx === 0 ? 'checked' : ''} class="text-amber-500 focus:ring-amber-400">
+                      <span class="text-xs font-bold text-slate-200">${cat}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">3. Tuliskan Tanggapan / Refleksi Anda (Anonim):</label>
+                <textarea id="refInputText" rows="4" class="w-full p-4 bg-slate-900 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-amber-400 resize-none placeholder-slate-600" placeholder="Ketikkan pemikiran atau refleksi Anda di sini..."></textarea>
+              </div>
+
+              <button id="btnSubmitRef" onclick="submitReflectionAnswer()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-4 rounded-2xl transition shadow-lg shadow-amber-500/20 cursor-pointer text-base tracking-wide">
+                KIRIM TANGGAPAN REFLEKSI
+              </button>
+
+              <div id="statusRefMsg" class="p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-400 text-xs font-bold hidden text-center">
+                ✓ Tanggapan Anda telah terkirim secara anonim ke Layar Utama!
+              </div>
+            </div>
+          </div>
+        `;
+
+        window.submitReflectionAnswer = async function() {
+          const text = document.getElementById('refInputText').value.trim();
+          const questionId = document.getElementById('refQuestionSelect').value;
+          const categoryEl = document.querySelector('input[name="refCategory"]:checked');
+          const category = categoryEl ? categoryEl.value : 'Keluarga';
+
+          if (!text) return alert('Silakan ketikkan tanggapan refleksi Anda terlebih dahulu!');
+
+          const btn = document.getElementById('btnSubmitRef');
+          btn.disabled = true;
+          btn.innerText = 'Mengirim...';
+
+          const newAns = {
+            id: 'ans_' + Date.now(),
+            question_id: questionId,
+            category: category,
+            jawaban: text,
+            created_at: new Date().toISOString()
+          };
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient.from('reflection_answers').insert([{
+                question_id: questionId,
+                category: category,
+                jawaban: text
+              }]);
+              if (error) console.error("Supabase insert answer error:", error);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+
+          localReflectionAnswers.push(newAns);
+
+          document.getElementById('statusRefMsg').classList.remove('hidden');
+          document.getElementById('refInputText').value = '';
+          btn.disabled = false;
+          btn.innerText = 'KIRIM TANGGAPAN LAINNYA';
+        };
+      }
     }
 
     // ==========================================
     // 2. TAMPILAN ADMIN CMS PANEL
     // ==========================================
     else if (role === 'admin') {
+      function getAdminPin() {
+        return localStorage.getItem('bksn_admin_pin') || '1234';
+      }
+      function setAdminPin(newPin) {
+        localStorage.setItem('bksn_admin_pin', newPin);
+      }
+
       function initAdminPanel() {
         const pin = prompt('Masukkan PIN Admin BKSN:');
-        if (pin !== '1234') {
+        if (pin !== getAdminPin()) {
           alert('PIN Salah! Mengalihkan ke halaman utama...');
           window.location.href = 'index.html';
           return;
@@ -281,23 +453,48 @@
       async function renderAdminUI() {
         const app = document.getElementById('app');
         app.innerHTML = `
-          <div class="glass-card p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-800 max-w-3xl mx-auto my-6">
+          <div class="glass-card p-6 sm:p-8 rounded-3xl shadow-2xl border border-slate-800 max-w-4xl mx-auto my-6">
             <div class="flex justify-between items-center pb-6 mb-6 border-b border-slate-800">
               <div>
-                <h1 class="text-2xl font-black text-amber-400">CMS Admin KataBerantai</h1>
-                <p class="text-xs text-slate-400">Kelola Preset Teks & Kontrol Sesi Permainan BKSN 2026</p>
+                <h1 class="text-2xl font-black text-amber-400">CMS Admin BKSN 2026</h1>
+                <p class="text-xs text-slate-400">Pengaturan Mode Aktif, Preset Game, Refleksi Umat & Ekspor Laporan</p>
               </div>
               <a href="index.html" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-bold px-4 py-2 rounded-xl transition">
                 ← Kembali ke Layar Utama
               </a>
             </div>
 
-            <!-- BAGIAN 1: KONTROL SESI GAME -->
-            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
-              <h2 class="text-lg font-bold text-sky-400 mb-4 flex items-center space-x-2">
-                <span>🎮 Kontrol Sesi Permainan</span>
-              </h2>
+            <!-- TAB PENGATURAN MODE AKTIF (GAME vs REFLEKSI) -->
+            <div class="bg-amber-950/40 p-5 rounded-2xl border border-amber-500/30 mb-8">
+              <h2 class="text-sm font-black text-amber-400 uppercase tracking-wider mb-3">⚙️ Pengaturan Mode Halaman Utama (Proyektor)</h2>
+              <p class="text-xs text-slate-300 mb-4">Pilih tampilan mana yang ingin ditampilkan untuk publik/umat saat ini:</p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="flex items-center space-x-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-700 cursor-pointer hover:border-amber-400 transition">
+                  <input type="radio" name="appActiveMode" value="game" ${localSession.active_mode !== 'reflection' ? 'checked' : ''} class="w-4 h-4 text-amber-500">
+                  <div>
+                    <span class="text-sm font-bold text-sky-400 block">🎮 Mode 1: Kata Berantai Simulator</span>
+                    <span class="text-[11px] text-slate-400">Tampilan arena kompetisi bisikan Kelompok A vs B</span>
+                  </div>
+                </label>
 
+                <label class="flex items-center space-x-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-700 cursor-pointer hover:border-amber-400 transition">
+                  <input type="radio" name="appActiveMode" value="reflection" ${localSession.active_mode === 'reflection' ? 'checked' : ''} class="w-4 h-4 text-amber-500">
+                  <div>
+                    <span class="text-sm font-bold text-amber-400 block">💡 Mode 2: Rekap Refleksi Umat</span>
+                    <span class="text-[11px] text-slate-400">Papan pengumpulan jawaban umat per kategori</span>
+                  </div>
+                </label>
+              </div>
+
+              <button onclick="saveActiveMode()" class="mt-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs transition cursor-pointer">
+                Simpan & Aktifkan Mode Terpilih
+              </button>
+            </div>
+
+            <!-- KONTROL GAME KATA BERANTAI -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
+              <h2 class="text-base font-bold text-sky-400 mb-4">🎮 Kontrol Game Kata Berantai</h2>
               <div class="space-y-4">
                 <div>
                   <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pilih Preset Teks BKSN:</label>
@@ -309,73 +506,104 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok A:</label>
-                    <textarea id="adminTeksA" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
+                    <textarea id="adminTeksA" rows="2" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
                   </div>
                   <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Teks Kelompok B:</label>
-                    <textarea id="adminTeksB" rows="3" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
+                    <textarea id="adminTeksB" rows="2" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-400"></textarea>
                   </div>
                 </div>
 
                 <div class="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
                   <input type="checkbox" id="checkSecret" class="w-4 h-4 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500">
-                  <label for="checkSecret" class="text-xs text-slate-300 font-medium">Sembunyikan Kalimat Rahasia di Layar Host (Hanya muncul saat jawaban dikirim)</label>
+                  <label for="checkSecret" class="text-xs text-slate-300 font-medium">Sembunyikan Kalimat Rahasia di Layar Host</label>
                 </div>
 
-                <div class="flex flex-col sm:flex-row gap-3 pt-2">
-                  <button onclick="startSession()" class="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/10 cursor-pointer">
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <button onclick="startSession()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl transition cursor-pointer text-xs">
                     ▶ MULAI SESI GAME BARU
                   </button>
-                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3.5 rounded-xl transition cursor-pointer">
-                    ↺ Reset Jawaban
+                  <button onclick="resetSession()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-600/50 font-bold px-6 py-3 rounded-xl transition cursor-pointer text-xs">
+                    ↺ Reset Jawaban Game
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- BAGIAN 2: KELOLA PRESET (CRUD) -->
+            <!-- MANAJEMEN PERTANYAAN REFLEKSI UMAT -->
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
               <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold text-amber-400">📚 Kelola Preset Ayat/Pesan</h2>
-                <button onclick="showAddPresetModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                  + Tambah Preset Baru
+                <h2 class="text-base font-bold text-amber-400">💡 Kelola Pertanyaan Refleksi Umat</h2>
+                <button onclick="showAddQuestionModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  + Tambah Pertanyaan
                 </button>
               </div>
+              <div id="adminQuestionsList" class="space-y-3"></div>
+            </div>
 
-              <div id="presetsList" class="space-y-3">
-                <!-- Preset items rendered here -->
+            <!-- REKAP & EKSPOR DATA UNTUK EXCEL / TXT -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
+              <h2 class="text-base font-bold text-emerald-400 mb-2">📊 Ekspor Laporan Jawaban Umat</h2>
+              <p class="text-xs text-slate-400 mb-4">Unduh seluruh data jawaban yang dikumpulkan dari umat untuk dokumentasi BKSN:</p>
+              
+              <div class="flex flex-wrap gap-3">
+                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl text-xs transition flex items-center space-x-2 cursor-pointer">
+                  <span>📥 Export to Excel (.CSV)</span>
+                </button>
+                <button onclick="exportToTXT()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl text-xs transition flex items-center space-x-2 cursor-pointer">
+                  <span>📄 Export to Text (.TXT)</span>
+                </button>
+                <button onclick="clearReflectionAnswers()" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/40 font-bold px-5 py-3 rounded-xl text-xs transition cursor-pointer">
+                  🗑️ Reset Semua Jawaban Refleksi
+                </button>
               </div>
             </div>
 
-            <!-- BAGIAN 3: PANDUAN SQL SUPABASE -->
+            <!-- PENGATURAN RUBAH PIN / PASSWORD ADMIN -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
+              <h2 class="text-base font-bold text-amber-400 mb-2">🔐 Ubah PIN / Password Admin</h2>
+              <p class="text-xs text-slate-400 mb-4">PIN bawaan awal adalah <strong class="text-amber-400">1234</strong>. Anda dapat menggantinya kapan saja:</p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg">
+                <input type="password" id="oldAdminPin" placeholder="PIN Lama" class="p-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-400">
+                <input type="password" id="newAdminPin" placeholder="PIN Baru" class="p-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-400">
+                <button onclick="changeAdminPin()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-3 rounded-xl text-xs transition cursor-pointer">
+                  Simpan PIN Baru
+                </button>
+              </div>
+            </div>
+
+            <!-- PANDUAN SQL SUPABASE -->
             <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ Troubleshooting Supabase (SQL Setup)</h2>
-              <p class="text-xs text-slate-400 mb-3">Jika pengiriman jawaban dari HP pemain tidak masuk atau ada error kolom, jalankan script ini di <strong>SQL Editor Supabase</strong> Anda:</p>
-              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="8">
+              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ SQL Setup Supabase (Tabel Refleksi)</h2>
+              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="7">
 create table if not exists game_session (
-  id int primary key default 1,
-  preset_id text, teks_a text, teks_b text,
-  hasil_a text, hasil_b text, status text, show_secret boolean default false
+  id int primary key default 1, preset_id text, teks_a text, teks_b text,
+  hasil_a text, hasil_b text, status text, show_secret boolean default false, active_mode text default 'game'
 );
-alter table game_session add column if not exists show_secret boolean default false;
+alter table game_session add column if not exists active_mode text default 'game';
 alter table game_session disable row level security;
-insert into game_session (id, status, show_secret) values (1, 'idle', false) on conflict (id) do nothing;
+
+create table if not exists reflection_answers (
+  id uuid primary key default gen_random_uuid(),
+  question_id text, category text, jawaban text, created_at timestamp default now()
+);
+alter table reflection_answers disable row level security;
               </textarea>
             </div>
           </div>
         `;
 
         loadPresetsAdmin();
+        renderAdminQuestionsList();
       }
 
       let currentPresets = DEFAULT_PRESETS;
 
       async function loadPresetsAdmin() {
         if (supabaseClient) {
-          const { data, error } = await supabaseClient.from('presets').select('*');
-          if (data && data.length > 0) {
-            currentPresets = data;
-          }
+          const { data } = await supabaseClient.from('presets').select('*');
+          if (data && data.length > 0) currentPresets = data;
         }
         
         const select = document.getElementById('presetSelect');
@@ -384,11 +612,7 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
         });
 
-        if (currentPresets.length > 0) {
-          onPresetChange();
-        }
-
-        renderPresetList();
+        if (currentPresets.length > 0) onPresetChange();
       }
 
       window.onPresetChange = function() {
@@ -400,24 +624,64 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
         }
       };
 
-      function renderPresetList() {
-        const container = document.getElementById('presetsList');
+      function renderAdminQuestionsList() {
+        const container = document.getElementById('adminQuestionsList');
+        if (!container) return;
         container.innerHTML = '';
-        currentPresets.forEach(p => {
+        DEFAULT_QUESTIONS.forEach(q => {
           container.innerHTML += `
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-start gap-4">
-              <div class="space-y-1">
-                <h4 class="text-sm font-bold text-slate-200">${p.judul}</h4>
-                <p class="text-xs text-sky-400 font-mono">A: ${p.teks_a}</p>
-                <p class="text-xs text-emerald-400 font-mono">B: ${p.teks_b}</p>
-              </div>
-              <button onclick="deletePreset('${p.id}')" class="text-xs text-rose-400 hover:text-rose-300 font-semibold bg-rose-950/60 p-2 rounded-lg border border-rose-800/40 transition">
-                Hapus
-              </button>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+              <span class="text-slate-200 font-medium">${q.teks}</span>
+              <button onclick="deleteQuestion('${q.id}')" class="text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 bg-rose-950/60 rounded border border-rose-800/40">Hapus</button>
             </div>
           `;
         });
       }
+
+      window.changeAdminPin = function() {
+        const oldPin = document.getElementById('oldAdminPin').value;
+        const newPin = document.getElementById('newAdminPin').value.trim();
+
+        if (oldPin !== getAdminPin()) {
+          return alert('PIN Lama yang Anda masukkan salah!');
+        }
+        if (!newPin || newPin.length < 4) {
+          return alert('PIN Baru minimal harus 4 karakter!');
+        }
+
+        setAdminPin(newPin);
+        alert('✓ PIN Admin berhasil diubah!');
+        document.getElementById('oldAdminPin').value = '';
+        document.getElementById('newAdminPin').value = '';
+      };
+
+      window.saveActiveMode = async function() {
+        const modeEl = document.querySelector('input[name="appActiveMode"]:checked');
+        const mode = modeEl ? modeEl.value : 'game';
+
+        localSession.active_mode = mode;
+
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            const payload = {
+              id: 1,
+              preset_id: data?.preset_id || localSession.preset_id || '1',
+              teks_a: data?.teks_a || localSession.teks_a || '',
+              teks_b: data?.teks_b || localSession.teks_b || '',
+              hasil_a: data?.hasil_a || localSession.hasil_a || '',
+              hasil_b: data?.hasil_b || localSession.hasil_b || '',
+              status: data?.status || localSession.status || 'idle',
+              show_secret: data?.show_secret ?? localSession.show_secret ?? false,
+              active_mode: mode
+            };
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {
+            console.error(e);
+          }
+        }
+        alert('Mode Halaman Utama berhasil diubah menjadi: ' + (mode === 'game' ? 'Kata Berantai Simulator' : 'Rekap Refleksi Umat'));
+      };
 
       window.startSession = async function() {
         const teksA = document.getElementById('adminTeksA').value.trim();
@@ -435,16 +699,16 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           hasil_a: '',
           hasil_b: '',
           status: 'playing',
-          show_secret: !hideSecret
+          show_secret: !hideSecret,
+          active_mode: localSession.active_mode || 'game'
         };
 
         if (supabaseClient) {
-          const { error } = await supabaseClient.from('game_session').upsert(payload);
-          if (error) alert('Error Supabase: ' + error.message);
+          await supabaseClient.from('game_session').upsert(payload);
         }
 
         localSession = { ...localSession, ...payload };
-        alert(' Sesi permainan berhasil dimulai!');
+        alert('Sesi game berhasil dimulai!');
       };
 
       window.resetSession = async function() {
@@ -453,50 +717,121 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
           await supabaseClient.from('game_session').upsert(payload);
         }
         localSession = { ...localSession, ...payload };
-        alert(' Sesi direset! Jawaban pemain dibersihkan.');
+        alert('Sesi game direset!');
       };
 
-      window.showAddPresetModal = async function() {
-        const judul = prompt('Judul Preset (contoh: Pertemuan 3 - Sesi 1):');
-        if (!judul) return;
-        const teksA = prompt('Kalimat Rahasia Kelompok A:');
-        if (!teksA) return;
-        const teksB = prompt('Kalimat Rahasia Kelompok B (kosongkan jika sama dengan A):') || teksA;
-
-        const newP = {
-          id: 'p_' + Date.now(),
-          judul,
-          teks_a: teksA,
-          teks_b: teksB
-        };
-
-        if (supabaseClient) {
-          await supabaseClient.from('presets').insert([{ judul, teks_a: teksA, teks_b: teksB }]);
-        }
-
-        currentPresets.push(newP);
-        loadPresetsAdmin();
+      window.showAddQuestionModal = function() {
+        const teks = prompt('Ketikkan pertanyaan reflektif baru:');
+        if (!teks) return;
+        DEFAULT_QUESTIONS.push({ id: 'q_' + Date.now(), teks });
+        renderAdminQuestionsList();
       };
 
-      window.deletePreset = async function(id) {
-        if (!confirm('Hapus preset ini?')) return;
+      window.deleteQuestion = function(id) {
+        DEFAULT_QUESTIONS = DEFAULT_QUESTIONS.filter(q => q.id !== id);
+        renderAdminQuestionsList();
+      };
+
+      // UTILS: EXPORT TO EXCEL / CSV
+      window.exportToCSV = async function() {
+        let answers = localReflectionAnswers;
         if (supabaseClient) {
-          await supabaseClient.from('presets').delete().eq('id', id);
+          const { data } = await supabaseClient.from('reflection_answers').select('*');
+          if (data && data.length > 0) answers = data;
         }
-        currentPresets = currentPresets.filter(p => p.id != id);
-        loadPresetsAdmin();
+
+        if (answers.length === 0) return alert('Belum ada data jawaban refleksi yang terkumpul.');
+
+        let csvContent = "data:text/csv;charset=utf-8,ID,ID Pertanyaan,Kategori,Jawaban,Tanggal\n";
+        answers.forEach(a => {
+          const cleanText = `"${(a.jawaban || '').replace(/"/g, '""')}"`;
+          csvContent += `${a.id},${a.question_id},${a.category},${cleanText},${a.created_at || ''}\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Rekap_Refleksi_BKSN_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      // UTILS: EXPORT TO TEXT (.TXT)
+      window.exportToTXT = async function() {
+        let answers = localReflectionAnswers;
+        if (supabaseClient) {
+          const { data } = await supabaseClient.from('reflection_answers').select('*');
+          if (data && data.length > 0) answers = data;
+        }
+
+        if (answers.length === 0) return alert('Belum ada data jawaban refleksi yang terkumpul.');
+
+        let txt = "===========================================\n";
+        txt += "REKAP HASIL JAWABAN REFLEKSI BKSN 2026\n";
+        txt += "===========================================\n\n";
+
+        DEFAULT_QUESTIONS.forEach(q => {
+          txt += `PERTANYAAN: ${q.teks}\n`;
+          txt += `-------------------------------------------\n`;
+          
+          DEFAULT_CATEGORIES.forEach(cat => {
+            txt += `[KATEGORI: ${cat.toUpperCase()}]\n`;
+            const catAns = answers.filter(a => a.question_id === q.id && a.category === cat);
+            if (catAns.length > 0) {
+              catAns.forEach((a, i) => {
+                txt += `  ${i+1}. ${a.jawaban}\n`;
+              });
+            } else {
+              txt += `  (Belum ada masukan)\n`;
+            }
+            txt += `\n`;
+          });
+          txt += `\n`;
+        });
+
+        const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Laporan_Refleksi_BKSN_${Date.now()}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      window.clearReflectionAnswers = async function() {
+        if (!confirm('Apakah Anda yakin ingin menghapus SELURUH jawaban refleksi umat?')) return;
+        if (supabaseClient) {
+          await supabaseClient.from('reflection_answers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        }
+        localReflectionAnswers = [];
+        alert('Semua jawaban refleksi telah dibersihkan!');
       };
 
       initAdminPanel();
     }
 
     // ==========================================
-    // 3. TAMPILAN UTAMA / HOST (iPad & Proyektor)
+    // 3. TAMPILAN UTAMA / HOST (DAPAT SWITCHING MODE)
     // ==========================================
     else {
       const app = document.getElementById('app');
 
-      function renderHost(session) {
+      function mainHostRouter(session) {
+        const currentSession = session || localSession;
+        
+        // JIKA MODE AKTIF = REFLECTION -> RENDER PAPAN REFLEKSI UMAT
+        if (currentSession.active_mode === 'reflection') {
+          renderReflectionHostUI();
+        } 
+        // JIKA MODE AKTIF = GAME -> RENDER KATABERANTAI SIMULATOR (UTUH TANPA ADA BERUBAH)
+        else {
+          renderGameHostUI(currentSession);
+        }
+      }
+
+      // 3A. HOST MODE 1: KATA BERANTAI SIMULATOR (100% UTUH PADA DESAIN AWAL)
+      function renderGameHostUI(session) {
         const currentSession = session || localSession;
         
         const isFinished = currentSession.status === 'finished' || (currentSession.hasil_a && currentSession.hasil_b);
@@ -530,6 +865,9 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
             </div>
 
             <div class="flex items-center space-x-3">
+              <button onclick="quickSwitchMode('reflection')" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 text-xs font-bold px-3 py-2.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer">
+                <span>🔀 Mode Refleksi</span>
+              </button>
               <button onclick="toggleQRModal()" class="bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-2 cursor-pointer shadow">
                 <span>📱 Scan QR Pemain</span>
               </button>
@@ -638,47 +976,143 @@ insert into game_session (id, status, show_secret) values (1, 'idle', false) on 
         }
       }
 
-      // Realtime Fetch & Subscribe
+      // 3B. HOST MODE 2: REKAP REFLEKSI UMAT (DIKELOMPOKKAN PER KATEGORI REALTIME)
+      async function renderReflectionHostUI() {
+        let answers = localReflectionAnswers;
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.from('reflection_answers').select('*').order('created_at', { ascending: false });
+            if (data && data.length > 0) answers = data;
+          } catch(e) {}
+        }
+
+        app.innerHTML = `
+          <!-- HEADER REFLEKSI BKSN -->
+          <header class="flex flex-col sm:flex-row justify-between items-center my-6 gap-4 border-b border-slate-800/80 pb-6">
+            <div class="text-center sm:text-left">
+              <div class="inline-flex items-center space-x-2 bg-amber-950/60 border border-amber-500/30 text-amber-400 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-2">
+                <span>BKSN 2026</span>
+                <span>•</span>
+                <span>Pertemuan 3</span>
+              </div>
+              <h1 class="text-3xl font-black text-amber-400 tracking-wide">PAPAN REFLEKSI UMAT</h1>
+              <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Pengumpulan Tanggapan Umat Per Kategori (Anonim)</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <button onclick="quickSwitchMode('game')" class="bg-sky-950/80 hover:bg-sky-900 border border-sky-500/50 text-sky-300 text-xs font-bold px-3 py-2.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer">
+                <span>🔀 Mode Kata Berantai</span>
+              </button>
+              <button onclick="toggleQRReflectionModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition flex items-center space-x-2 cursor-pointer shadow">
+                <span>📱 Scan QR Form Umat</span>
+              </button>
+              <a href="index.html?role=admin" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition shadow cursor-pointer">
+                ⚙️ Admin CMS
+              </a>
+            </div>
+          </header>
+
+          <!-- DAFTAR PERTANYAAN & 4 KOLOM KATEGORI -->
+          <div class="space-y-10 mb-8">
+            ${DEFAULT_QUESTIONS.map((q, qIdx) => `
+              <div class="glass-card p-6 rounded-3xl border border-slate-800">
+                <div class="flex items-start space-x-3 mb-6">
+                  <span class="bg-amber-500 text-slate-950 text-xs font-black px-3 py-1 rounded-lg">#${qIdx+1}</span>
+                  <h3 class="text-lg font-bold text-amber-300 leading-snug">${q.teks}</h3>
+                </div>
+
+                <!-- 4 KOLOM KATEGORI -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  ${DEFAULT_CATEGORIES.map(cat => {
+                    const catAnswers = answers.filter(a => a.question_id === q.id && a.category === cat);
+                    return `
+                      <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800/80">
+                        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                          <span class="text-xs font-black text-sky-400 uppercase tracking-wider">${cat}</span>
+                          <span class="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-bold">${catAnswers.length} masukan</span>
+                        </div>
+
+                        <div class="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+                          ${catAnswers.length > 0 ? catAnswers.map(a => `
+                            <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-200 leading-relaxed relative">
+                              <span class="text-amber-400/80 font-serif mr-1">“</span>${a.jawaban}<span class="text-amber-400/80 font-serif ml-1">”</span>
+                            </div>
+                          `).join('') : '<p class="text-[11px] text-slate-600 italic text-center py-4">Belum ada masukan</p>'}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- FOOTER COPYRIGHT HERIKRISMUNANTO -->
+          <footer class="text-center py-4 border-t border-slate-800/80 text-xs text-slate-500 font-medium tracking-wide">
+            © 2026 <span class="text-slate-400">KataBerantai & Refleksi BKSN</span> • Developed by <strong class="text-amber-400 font-bold">herikrismunanto</strong>
+          </footer>
+        `;
+      }
+
+      window.quickSwitchMode = async function(newMode) {
+        localSession.active_mode = newMode;
+        if (typeof mainHostRouter === 'function') {
+          mainHostRouter(localSession);
+        }
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            const payload = {
+              id: 1,
+              preset_id: data?.preset_id || localSession.preset_id || '1',
+              teks_a: data?.teks_a || localSession.teks_a || '',
+              teks_b: data?.teks_b || localSession.teks_b || '',
+              hasil_a: data?.hasil_a || localSession.hasil_a || '',
+              hasil_b: data?.hasil_b || localSession.hasil_b || '',
+              status: data?.status || localSession.status || 'idle',
+              show_secret: data?.show_secret ?? localSession.show_secret ?? false,
+              active_mode: newMode
+            };
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {}
+        }
+      };
+
+      // Realtime Fetch & Subscribe Host
       async function initHost() {
-        renderHost(localSession);
+        mainHostRouter(localSession);
 
         if (!supabaseClient) return;
 
         async function fetchSession() {
           try {
-            const { data, error } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
-            if (error) console.error("Fetch error:", error);
+            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
               localSession = { ...localSession, ...data };
-              renderHost(localSession);
-            } else {
-              await supabaseClient.from('game_session').upsert([
-                { id: 1, preset_id: 'p1', teks_a: DEFAULT_PRESETS[0].teks_a, teks_b: DEFAULT_PRESETS[0].teks_b, hasil_a: '', hasil_b: '', status: 'idle', show_secret: false }
-              ]);
+              mainHostRouter(localSession);
             }
-          } catch (err) {
-            console.error("Supabase fetch error:", err);
-          }
+          } catch (err) {}
         }
 
         await fetchSession();
 
-        // Auto polling setiap 2 detik sebagai penjamin sinkronisasi realtime
+        // Polling 2s
         setInterval(fetchSession, 2000);
 
-        // Realtime Listener
+        // Realtime Listener Game & Answers
         try {
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
                 localSession = { ...localSession, ...payload.new };
-                renderHost(localSession);
+                mainHostRouter(localSession);
               }
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reflection_answers' }, () => {
+              mainHostRouter(localSession);
+            })
             .subscribe();
-        } catch (err) {
-          console.error("Realtime subscription error:", err);
-        }
+        } catch (err) {}
       }
 
       initHost();
