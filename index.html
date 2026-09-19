@@ -406,17 +406,16 @@
               </div>
               <div>
                 <h1 class="text-xl font-black text-amber-400">Akses CMS Admin</h1>
-                <p class="text-xs text-slate-400 mt-1">Masukkan PIN untuk mengelola permainan BKSN</p>
-                <p class="text-[11px] text-amber-300/80 mt-1 font-mono">PIN Bawaan Awal: <strong>1234</strong></p>
+                <p class="text-xs text-slate-400 mt-1">Masukkan PIN Admin untuk mengelola permainan BKSN</p>
               </div>
 
               <form onsubmit="handlePinSubmit(event)" class="space-y-4 pt-2">
                 <div>
-                  <input type="password" id="inputAdminPin" inputmode="numeric" placeholder="Masukkan PIN (cth: 1234)" autofocus autocomplete="off" class="w-full text-center text-xl font-black tracking-widest p-3.5 bg-slate-950 border border-slate-700 rounded-2xl text-white focus:outline-none focus:border-amber-400">
+                  <input type="password" id="inputAdminPin" inputmode="numeric" placeholder="Masukkan PIN Admin" autofocus autocomplete="off" class="w-full text-center text-xl font-black tracking-widest p-3.5 bg-slate-950 border border-slate-700 rounded-2xl text-white focus:outline-none focus:border-amber-400">
                 </div>
 
                 <div id="pinErrorMessage" class="text-xs font-bold text-rose-400 hidden bg-rose-950/60 border border-rose-500/40 p-3 rounded-xl animate-bounce">
-                  ❌ PIN Salah! Silakan coba masukkan PIN bawaan <strong>1234</strong>.
+                  ❌ PIN Salah! Silakan periksa kembali PIN Admin Anda.
                 </div>
 
                 <div class="flex space-x-3 pt-2">
@@ -441,7 +440,7 @@
         const inputPin = (document.getElementById('inputAdminPin')?.value || '').trim();
         const storedPin = (getAdminPin() || '1234').trim();
 
-        if (inputPin === storedPin || inputPin === '1234') {
+        if (inputPin === storedPin) {
           renderAdminUI();
         } else {
           const err = document.getElementById('pinErrorMessage');
@@ -1111,22 +1110,26 @@ alter table game_session disable row level security;
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
               const currentLocalSec = localStorage.getItem('bksn_show_secret');
+              const localTeksData = safeJSONParse('bksn_teks_data', null);
+              const localGroupCount = localStorage.getItem('bksn_group_count');
+
               if (typeof data.show_secret === 'boolean') {
                 if (currentLocalSec === null || data.show_secret === true) {
                   localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
                 }
               }
               const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (data.show_secret ?? localSession.show_secret);
-              localSession = { ...localSession, ...data, show_secret: keepShowSecret };
-              if (data.group_count) {
-                localStorage.setItem('bksn_group_count', data.group_count.toString());
-              }
-              if (data.teks_data) {
-                localStorage.setItem('bksn_teks_data', JSON.stringify(data.teks_data));
-              }
-              if (data.hasil_data) {
-                localStorage.setItem('bksn_hasil_data', JSON.stringify(data.hasil_data));
-              }
+              const finalTeksData = localTeksData || data.teks_data || localSession.teks_data;
+              const finalGroupCount = localGroupCount ? parseInt(localGroupCount) : (data.group_count || localSession.group_count || 2);
+
+              localSession = { 
+                ...localSession, 
+                ...data, 
+                teks_data: finalTeksData, 
+                group_count: finalGroupCount, 
+                show_secret: keepShowSecret 
+              };
+
               renderGameHostUI(localSession);
             }
           } catch (err) {}
@@ -1143,22 +1146,26 @@ alter table game_session disable row level security;
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
                 const currentLocalSec = localStorage.getItem('bksn_show_secret');
+                const localTeksData = safeJSONParse('bksn_teks_data', null);
+                const localGroupCount = localStorage.getItem('bksn_group_count');
+
                 if (typeof payload.new.show_secret === 'boolean') {
                   if (currentLocalSec === null || payload.new.show_secret === true) {
                     localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
                   }
                 }
                 const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (payload.new.show_secret ?? localSession.show_secret);
-                localSession = { ...localSession, ...payload.new, show_secret: keepShowSecret };
-                if (payload.new.group_count) {
-                  localStorage.setItem('bksn_group_count', payload.new.group_count.toString());
-                }
-                if (payload.new.teks_data) {
-                  localStorage.setItem('bksn_teks_data', JSON.stringify(payload.new.teks_data));
-                }
-                if (payload.new.hasil_data) {
-                  localStorage.setItem('bksn_hasil_data', JSON.stringify(payload.new.hasil_data));
-                }
+                const finalTeksData = localTeksData || payload.new.teks_data || localSession.teks_data;
+                const finalGroupCount = localGroupCount ? parseInt(localGroupCount) : (payload.new.group_count || localSession.group_count || 2);
+
+                localSession = { 
+                  ...localSession, 
+                  ...payload.new, 
+                  teks_data: finalTeksData, 
+                  group_count: finalGroupCount, 
+                  show_secret: keepShowSecret 
+                };
+
                 renderGameHostUI(localSession);
               }
             })
