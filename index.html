@@ -537,17 +537,30 @@ alter table game_session disable row level security;
       let currentPresets = DEFAULT_PRESETS;
 
       async function loadPresetsAdmin() {
-        const savedCustoms = JSON.parse(localStorage.getItem('bksn_custom_presets') || '[]');
-        currentPresets = [...DEFAULT_PRESETS, ...savedCustoms];
+        const savedCustoms = safeJSONParse('bksn_custom_presets', []);
+        
+        let mergedMap = new Map();
+        DEFAULT_PRESETS.forEach(p => mergedMap.set(p.id, p));
 
         if (supabaseClient) {
           try {
             const { data } = await supabaseClient.from('presets').select('*');
             if (data && data.length > 0) {
-              currentPresets = data;
+              data.forEach(p => {
+                if (p && p.id) {
+                  const existing = mergedMap.get(p.id) || {};
+                  mergedMap.set(p.id, { ...existing, ...p });
+                }
+              });
             }
           } catch(e){}
         }
+
+        savedCustoms.forEach(p => {
+          if (p && p.id) mergedMap.set(p.id, p);
+        });
+
+        currentPresets = Array.from(mergedMap.values());
         
         const select = document.getElementById('presetSelect');
         if (select) {
@@ -555,6 +568,12 @@ alter table game_session disable row level security;
           currentPresets.forEach(p => {
             select.innerHTML += `<option value="${p.id}">${p.judul}</option>`;
           });
+
+          if (localSession.preset_id && currentPresets.some(item => item.id == localSession.preset_id)) {
+            select.value = localSession.preset_id;
+          } else if (currentPresets.length > 0) {
+            select.value = currentPresets[0].id;
+          }
         }
 
         onGroupCountChange();
@@ -564,9 +583,25 @@ alter table game_session disable row level security;
         const select = document.getElementById('presetSelect');
         if (select) {
           select.value = presetId;
-          onPresetChange();
         }
+        applyPresetToInputs(presetId);
       };
+
+      function applyPresetToInputs(presetId) {
+        const p = currentPresets.find(item => item.id == presetId);
+        if (p) {
+          const countSelect = document.getElementById('groupCountSelect');
+          const count = countSelect ? parseInt(countSelect.value) : (localSession.group_count || 2);
+          const activeGroups = GROUP_THEMES.slice(0, count);
+          activeGroups.forEach(g => {
+            const inputEl = document.getElementById(`adminTeks_${g.name}`);
+            if (inputEl) {
+              const key = `teks_${g.name.toLowerCase()}`;
+              inputEl.value = p[key] || p.teks_a || '';
+            }
+          });
+        }
+      }
 
       window.addCustomPreset = function() {
         const judul = prompt('Masukkan Judul Preset Baru (misal: Pertemuan 3 - Refleksi Khusus):');
@@ -581,7 +616,7 @@ alter table game_session disable row level security;
           teks_a: teks, teks_b: teks, teks_c: teks, teks_d: teks, teks_e: teks, teks_f: teks
         };
 
-        const savedCustoms = JSON.parse(localStorage.getItem('bksn_custom_presets') || '[]');
+        const savedCustoms = safeJSONParse('bksn_custom_presets', []);
         savedCustoms.push(newPreset);
         localStorage.setItem('bksn_custom_presets', JSON.stringify(savedCustoms));
 
@@ -605,8 +640,12 @@ alter table game_session disable row level security;
         if (!container) return;
 
         const activeGroups = GROUP_THEMES.slice(0, count);
+        const selectedPresetId = document.getElementById('presetSelect')?.value || localSession.preset_id || 'p1';
+        const p = currentPresets.find(item => item.id == selectedPresetId) || DEFAULT_PRESETS[0];
+
         container.innerHTML = activeGroups.map(g => {
-          const val = getGroupTeks(localSession, g.name) || DEFAULT_PRESETS[0].teks_a;
+          const key = `teks_${g.name.toLowerCase()}`;
+          const val = getGroupTeks(localSession, g.name) || p[key] || p.teks_a || '';
           return `
             <div>
               <label class="block text-xs font-bold ${g.textClass} uppercase tracking-wider mb-1">Teks ${g.label}:</label>
@@ -614,28 +653,12 @@ alter table game_session disable row level security;
             </div>
           `;
         }).join('');
-
-        if (document.getElementById('presetSelect')?.value) {
-          onPresetChange();
-        }
       };
 
       window.onPresetChange = function() {
         const select = document.getElementById('presetSelect');
-        if (!select) return;
-        const id = select.value;
-        const p = currentPresets.find(item => item.id == id);
-        if (p) {
-          const count = parseInt(document.getElementById('groupCountSelect').value || '2');
-          const activeGroups = GROUP_THEMES.slice(0, count);
-          activeGroups.forEach(g => {
-            const inputEl = document.getElementById(`adminTeks_${g.name}`);
-            if (inputEl) {
-              const key = `teks_${g.name.toLowerCase()}`;
-              inputEl.value = p[key] || p.teks_a || '';
-            }
-          });
-        }
+        if (!select || !select.value) return;
+        applyPresetToInputs(select.value);
       };
 
       window.changeAdminPin = function() {
@@ -656,8 +679,9 @@ alter table game_session disable row level security;
       };
 
       window.toggleSecretVisibility = async function(shouldHide) {
-        localSession.show_secret = !shouldHide;
-        localStorage.setItem('bksn_show_secret', shouldHide ? 'false' : 'true');
+        const showSecret = !shouldHide;
+        localSession.show_secret = showSecret;
+        localStorage.setItem('bksn_show_secret', showSecret ? 'true' : 'false');
 
         const badge = document.getElementById('secretStatusBadge');
         if (badge) {
@@ -677,14 +701,15 @@ alter table game_session disable row level security;
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             const payload = {
               id: 1,
-              preset_id: data?.preset_id || localSession.preset_id || '1',
+              preset_id: data?.preset_id || localSession.preset_id || 'p1',
               group_count: localSession.group_count || 2,
               teks_data: data?.teks_data || localSession.teks_data,
               hasil_data: data?.hasil_data || localSession.hasil_data,
               status: data?.status || localSession.status || 'idle',
-              show_secret: !shouldHide
+              show_secret: showSecret
             };
-            await supabaseClient.from('game_session').upsert(payload);
+            const { error } = await supabaseClient.from('game_session').upsert(payload);
+            if (error) console.warn("Supabase toggle error:", error);
           } catch(e) {
             console.error(e);
           }
@@ -735,7 +760,8 @@ alter table game_session disable row level security;
 
         if (supabaseClient) {
           try {
-            await supabaseClient.from('game_session').upsert(payload);
+            const { error } = await supabaseClient.from('game_session').upsert(payload);
+            if (error) console.warn("Supabase save error:", error);
           } catch(e) {
             console.error(e);
           }
@@ -1020,10 +1046,12 @@ alter table game_session disable row level security;
           try {
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
-              localSession = { ...localSession, ...data };
-              if (data.show_secret !== undefined) {
+              if (typeof data.show_secret === 'boolean') {
                 localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
+              } else {
+                delete data.show_secret;
               }
+              localSession = { ...localSession, ...data };
               if (data.group_count) {
                 localStorage.setItem('bksn_group_count', data.group_count.toString());
               }
@@ -1048,10 +1076,12 @@ alter table game_session disable row level security;
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
-                localSession = { ...localSession, ...payload.new };
-                if (payload.new.show_secret !== undefined) {
+                if (typeof payload.new.show_secret === 'boolean') {
                   localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
+                } else {
+                  delete payload.new.show_secret;
                 }
+                localSession = { ...localSession, ...payload.new };
                 if (payload.new.group_count) {
                   localStorage.setItem('bksn_group_count', payload.new.group_count.toString());
                 }
