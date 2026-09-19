@@ -566,22 +566,35 @@
               </div>
             </div>
 
-            <!-- PANDUAN SQL SUPABASE -->
-            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-              <h2 class="text-sm font-bold text-slate-300 mb-2">🛠️ SQL Setup Supabase (Multi-Kelompok)</h2>
-              <textarea readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="5">
-create table if not exists game_session (
+            <!-- PANDUAN SQL SUPABASE SETUP (WAJIB UNTUK SYNC CROSS-DEVICE) -->
+            <div class="bg-amber-950/40 p-5 rounded-2xl border border-amber-500/40 space-y-3">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <h2 class="text-xs font-black text-amber-400 uppercase tracking-wider">⚡ WAJIB JALANKAN SQL INI DI SUPABASE SQL EDITOR (UNTUK SINKRONISASI HP ↔ LAPTOP)</h2>
+                <button onclick="copySqlScript()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-lg transition shadow cursor-pointer">📋 Salin Perintah SQL</button>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">Jika sinkronisasi real-time antar perangkat belum berjalan, jalankan perintah SQL ini di <strong>Supabase Dashboard > SQL Editor</strong> untuk mematikan RLS dan menambahkan kolom database yang dibutuhkan:</p>
+              <textarea id="sqlScriptTextarea" readonly class="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] border border-slate-800 rounded-xl leading-relaxed select-all" rows="6">create table if not exists game_session (
   id int primary key default 1, preset_id text, group_count int default 2,
   teks_data jsonb, hasil_data jsonb, status text, show_secret boolean default false
 );
 alter table game_session add column if not exists group_count int default 2;
 alter table game_session add column if not exists teks_data jsonb;
 alter table game_session add column if not exists hasil_data jsonb;
+alter table game_session add column if not exists show_secret boolean default false;
 alter table game_session disable row level security;
-              </textarea>
+</textarea>
             </div>
           </div>
         `;
+
+        window.copySqlScript = function() {
+          const textarea = document.getElementById('sqlScriptTextarea');
+          if (textarea) {
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value);
+            alert('✓ Command SQL berhasil disalin! Silakan paste di Supabase Dashboard > SQL Editor dan klik RUN.');
+          }
+        };
 
         loadPresetsAdmin();
       }
@@ -769,7 +782,10 @@ alter table game_session disable row level security;
               show_secret: showSecret
             };
             const { error } = await supabaseClient.from('game_session').upsert(payload);
-            if (error) console.warn("Supabase toggle error:", error);
+            if (error) {
+              console.warn("Supabase toggle error:", error);
+              alert('⚠️ Terjadi error saat meng-update mode rahasia ke Supabase: ' + (error.message || JSON.stringify(error)) + '\n\nSilakan jalankan script SQL Setup Supabase di bagian bawah Admin CMS.');
+            }
           } catch(e) {
             console.error(e);
           }
@@ -821,13 +837,30 @@ alter table game_session disable row level security;
         if (supabaseClient) {
           try {
             const { error } = await supabaseClient.from('game_session').upsert(payload);
-            if (error) console.warn("Supabase save error:", error);
+            if (error) {
+              console.error("Supabase save error:", error);
+              // Fallback to legacy fields if JSONB payload failed
+              const legacyPayload = {
+                id: 1,
+                preset_id: presetId,
+                teks_a: teksData['A'] || '',
+                teks_b: teksData['B'] || '',
+                status: localSession.status || 'idle'
+              };
+              const { error: legErr } = await supabaseClient.from('game_session').upsert(legacyPayload);
+              
+              const msg = error.message || JSON.stringify(error);
+              alert('⚠️ GAGAL SINKRONISASI LENGKAP KE SUPABASE SERVER!\n\nError Supabase: ' + msg + '\n\n💡 SOLUSI: Perangkat lain (Laptop) tidak akan ter-update sampai Anda menjalankan script SQL Setup Supabase di bagian bawah halaman Admin CMS untuk men-disable RLS dan menambahkan kolom database.');
+              return;
+            }
           } catch(e) {
-            console.error(e);
+            console.error("Supabase catch error:", e);
+            alert('⚠️ Gagal terhubung ke Supabase server: ' + e.message);
+            return;
           }
         }
 
-        alert('✓ Pengaturan kalimat & mode rahasia berhasil disimpan & langsung diterapkan ke Layar Host!');
+        alert('✓ Pengaturan kalimat & mode rahasia berhasil disimpan ke Supabase Cloud & langsung ter-sync ke semua perangkat (Laptop & HP)!');
       };
 
       window.startSession = async function() {
