@@ -167,7 +167,18 @@
         return JSON.parse(item);
       } catch (e) {
         return fallback;
-      }
+    function formatPresetIdForSupabase(presetId) {
+      if (!presetId) return 1;
+      const str = presetId.toString();
+      const num = parseInt(str.replace(/\D/g, ''));
+      return isNaN(num) ? 1 : num;
+    }
+
+    function parsePresetIdFromSupabase(presetId) {
+      if (!presetId) return 'p1';
+      const str = presetId.toString();
+      if (str.startsWith('p')) return str;
+      return 'p' + str;
     }
 
     let storedShowSecret = localStorage.getItem('bksn_show_secret');
@@ -774,7 +785,7 @@ alter table game_session disable row level security;
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             const payload = {
               id: 1,
-              preset_id: data?.preset_id || localSession.preset_id || 'p1',
+              preset_id: formatPresetIdForSupabase(data?.preset_id || localSession.preset_id || 'p1'),
               group_count: localSession.group_count || 2,
               teks_data: data?.teks_data || localSession.teks_data,
               hasil_data: data?.hasil_data || localSession.hasil_data,
@@ -824,7 +835,7 @@ alter table game_session disable row level security;
 
         const payload = {
           id: 1,
-          preset_id: presetId,
+          preset_id: formatPresetIdForSupabase(presetId),
           group_count: count,
           teks_data: teksData,
           hasil_data: localSession.hasil_data || {},
@@ -842,7 +853,7 @@ alter table game_session disable row level security;
               // Fallback to legacy fields if JSONB payload failed
               const legacyPayload = {
                 id: 1,
-                preset_id: presetId,
+                preset_id: formatPresetIdForSupabase(presetId),
                 teks_a: teksData['A'] || '',
                 teks_b: teksData['B'] || '',
                 status: localSession.status || 'idle'
@@ -891,7 +902,7 @@ alter table game_session disable row level security;
 
         const payload = {
           id: 1,
-          preset_id: presetId,
+          preset_id: formatPresetIdForSupabase(presetId),
           group_count: count,
           teks_data: teksData,
           hasil_data: resetHasilData,
@@ -1152,6 +1163,9 @@ alter table game_session disable row level security;
           try {
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
+              if (data.preset_id !== undefined && data.preset_id !== null) {
+                data.preset_id = parsePresetIdFromSupabase(data.preset_id);
+              }
               if (typeof data.show_secret === 'boolean') {
                 localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
               }
@@ -1181,6 +1195,9 @@ alter table game_session disable row level security;
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
+                if (payload.new.preset_id !== undefined && payload.new.preset_id !== null) {
+                  payload.new.preset_id = parsePresetIdFromSupabase(payload.new.preset_id);
+                }
                 if (typeof payload.new.show_secret === 'boolean') {
                   localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
                 }
