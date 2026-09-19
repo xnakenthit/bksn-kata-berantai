@@ -167,6 +167,9 @@
         return JSON.parse(item);
       } catch (e) {
         return fallback;
+      }
+    }
+
     function formatPresetIdForSupabase(presetId) {
       if (!presetId) return 1;
       const str = presetId.toString();
