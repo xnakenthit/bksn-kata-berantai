@@ -938,13 +938,15 @@ alter table game_session disable row level security;
           metricsMap[g.name] = calcMetrics(orig, res);
         });
 
-        // TENTUKAN STATUS KERAHASIAN: Prioritas utama dari preferensi Admin (bksn_show_secret)
+        // TENTUKAN STATUS KERAHASIAN: Prioritas utama dari Supabase Cloud (currentSession.show_secret)
         let isSecretHidden = false;
-        const storedSec = localStorage.getItem('bksn_show_secret');
-        if (storedSec !== null) {
-          isSecretHidden = (storedSec === 'false');
-        } else if (currentSession.show_secret !== undefined && currentSession.show_secret !== null) {
+        if (typeof currentSession.show_secret === 'boolean') {
           isSecretHidden = !currentSession.show_secret;
+        } else {
+          const storedSec = localStorage.getItem('bksn_show_secret');
+          if (storedSec !== null) {
+            isSecretHidden = (storedSec === 'false');
+          }
         }
 
         const isFinished = currentSession.status === 'finished' || hasAnyAnswer;
