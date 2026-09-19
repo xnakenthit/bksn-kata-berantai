@@ -123,12 +123,16 @@
 
     let DEFAULT_CATEGORIES = ['Keluarga', 'Lingkungan', 'Paroki', 'Masyarakat'];
 
-    let localReflectionAnswers = [
+    let storedAnswers = localStorage.getItem('bksn_reflection_answers');
+    let localReflectionAnswers = storedAnswers ? JSON.parse(storedAnswers) : [
       { id: 'a1', question_id: 'q1', category: 'Keluarga', jawaban: 'Saling mendengarkan secara pribadi tanpa emosi saat ada masalah.' },
       { id: 'a2', question_id: 'q1', category: 'Lingkungan', jawaban: 'Menegur tetangga secara berbisik dan sopan tanpa membicarakannya di grup WA.' },
       { id: 'a3', question_id: 'q2', category: 'Paroki', jawaban: 'Selalu melakukan klarifikasi (tabayyun) langsung ke pengurus seksi.' },
       { id: 'a4', question_id: 'q2', category: 'Masyarakat', jawaban: 'Tidak ikut menyebarkan berita atau desas-desus yang belum tentu benar.' }
     ];
+
+    let storedShowSecret = localStorage.getItem('bksn_show_secret');
+    let initialShowSecret = storedShowSecret !== null ? storedShowSecret === 'true' : false;
 
     // DEFAULT SESSION STATE (DILENGKAPI active_mode: 'game' | 'reflection')
     let localSession = {
@@ -139,8 +143,8 @@
       hasil_a: '',
       hasil_b: '',
       status: 'idle',
-      show_secret: false,
-      active_mode: 'game' // Default mode: 'game' (Kata Berantai) atau 'reflection' (Refleksi Umat)
+      show_secret: initialShowSecret,
+      active_mode: localStorage.getItem('bksn_active_mode') || 'game'
     };
 
     // UTILS: Kalkulasi Akurasi & Distorsi
@@ -515,8 +519,8 @@
                 </div>
 
                 <div class="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                  <input type="checkbox" id="checkSecret" class="w-4 h-4 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500">
-                  <label for="checkSecret" class="text-xs text-slate-300 font-medium">Sembunyikan Kalimat Rahasia di Layar Host</label>
+                  <input type="checkbox" id="checkSecret" onchange="toggleSecretVisibility(this.checked)" ${!localSession.show_secret ? 'checked' : ''} class="w-4 h-4 text-amber-500 bg-slate-900 border-slate-700 rounded focus:ring-amber-500 cursor-pointer">
+                  <label for="checkSecret" class="text-xs text-slate-300 font-medium cursor-pointer">Sembunyikan Kalimat Rahasia di Layar Host</label>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3">
@@ -539,6 +543,21 @@
                 </button>
               </div>
               <div id="adminQuestionsList" class="space-y-3"></div>
+            </div>
+
+            <!-- REKAP SELURUH HASIL JAWABAN REFLEKSI UMAT -->
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 mb-8">
+              <div class="flex justify-between items-center mb-3">
+                <h2 class="text-base font-bold text-amber-400">💬 Daftar Jawaban & Refleksi Umat (Terrekam)</h2>
+                <button onclick="loadAdminReflectionAnswers()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer">
+                  🔄 Refresh Data
+                </button>
+              </div>
+              <p class="text-xs text-slate-400 mb-4">Seluruh masukan yang dikirimkan oleh umat secara anonim (dikelompokkan per pertanyaan):</p>
+              
+              <div id="adminReflectionAnswersContainer" class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                <p class="text-xs text-slate-500 italic">Memuat jawaban refleksi...</p>
+              </div>
             </div>
 
             <!-- REKAP & EKSPOR DATA UNTUK EXCEL / TXT -->
@@ -596,6 +615,7 @@ alter table reflection_answers disable row level security;
 
         loadPresetsAdmin();
         renderAdminQuestionsList();
+        loadAdminReflectionAnswers();
       }
 
       let currentPresets = DEFAULT_PRESETS;
@@ -638,6 +658,53 @@ alter table reflection_answers disable row level security;
         });
       }
 
+      window.loadAdminReflectionAnswers = async function() {
+        const container = document.getElementById('adminReflectionAnswersContainer');
+        if (!container) return;
+
+        let answers = localReflectionAnswers;
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.from('reflection_answers').select('*').order('created_at', { ascending: false });
+            if (data && data.length > 0) {
+              answers = data;
+              localReflectionAnswers = data;
+              localStorage.setItem('bksn_reflection_answers', JSON.stringify(data));
+            }
+          } catch(e) {}
+        }
+
+        if (answers.length === 0) {
+          container.innerHTML = `<p class="text-xs text-slate-500 italic p-4 text-center bg-slate-950/60 rounded-xl border border-slate-800/50">Belum ada masukan refleksi yang terrekam.</p>`;
+          return;
+        }
+
+        let html = '';
+        DEFAULT_QUESTIONS.forEach(q => {
+          const qAnswers = answers.filter(a => a.question_id === q.id);
+          html += `
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <h4 class="text-xs font-bold text-amber-300 mb-2">❓ ${q.teks} (${qAnswers.length} Jawaban)</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+          `;
+          if (qAnswers.length === 0) {
+            html += `<p class="text-[11px] text-slate-500 italic col-span-2">Belum ada jawaban untuk pertanyaan ini.</p>`;
+          } else {
+            qAnswers.forEach(a => {
+              html += `
+                <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200">
+                  <span class="inline-block bg-sky-950 border border-sky-500/30 text-sky-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-1">${a.category || 'Umum'}</span>
+                  <p class="leading-relaxed">“${a.jawaban}”</p>
+                </div>
+              `;
+            });
+          }
+          html += `</div></div>`;
+        });
+
+        container.innerHTML = html;
+      };
+
       window.changeAdminPin = function() {
         const oldPin = document.getElementById('oldAdminPin').value;
         const newPin = document.getElementById('newAdminPin').value.trim();
@@ -655,11 +722,37 @@ alter table reflection_answers disable row level security;
         document.getElementById('newAdminPin').value = '';
       };
 
+      window.toggleSecretVisibility = async function(shouldHide) {
+        localSession.show_secret = !shouldHide;
+        localStorage.setItem('bksn_show_secret', shouldHide ? 'false' : 'true');
+
+        if (supabaseClient) {
+          try {
+            const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            const payload = {
+              id: 1,
+              preset_id: data?.preset_id || localSession.preset_id || '1',
+              teks_a: data?.teks_a || localSession.teks_a || '',
+              teks_b: data?.teks_b || localSession.teks_b || '',
+              hasil_a: data?.hasil_a || localSession.hasil_a || '',
+              hasil_b: data?.hasil_b || localSession.hasil_b || '',
+              status: data?.status || localSession.status || 'idle',
+              show_secret: !shouldHide,
+              active_mode: localSession.active_mode || 'game'
+            };
+            await supabaseClient.from('game_session').upsert(payload);
+          } catch(e) {
+            console.error(e);
+          }
+        }
+      };
+
       window.saveActiveMode = async function() {
         const modeEl = document.querySelector('input[name="appActiveMode"]:checked');
         const mode = modeEl ? modeEl.value : 'game';
 
         localSession.active_mode = mode;
+        localStorage.setItem('bksn_active_mode', mode);
 
         if (supabaseClient) {
           try {
@@ -691,6 +784,9 @@ alter table reflection_answers disable row level security;
 
         if (!teksA || !teksB) return alert('Teks Kelompok A dan B tidak boleh kosong!');
 
+        const showSecret = !hideSecret;
+        localStorage.setItem('bksn_show_secret', showSecret ? 'true' : 'false');
+
         const payload = {
           id: 1,
           preset_id: presetId,
@@ -699,7 +795,7 @@ alter table reflection_answers disable row level security;
           hasil_a: '',
           hasil_b: '',
           status: 'playing',
-          show_secret: !hideSecret,
+          show_secret: showSecret,
           active_mode: localSession.active_mode || 'game'
         };
 
@@ -802,9 +898,15 @@ alter table reflection_answers disable row level security;
       window.clearReflectionAnswers = async function() {
         if (!confirm('Apakah Anda yakin ingin menghapus SELURUH jawaban refleksi umat?')) return;
         if (supabaseClient) {
-          await supabaseClient.from('reflection_answers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          try {
+            await supabaseClient.from('reflection_answers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          } catch(e) {}
         }
         localReflectionAnswers = [];
+        localStorage.removeItem('bksn_reflection_answers');
+        if (typeof loadAdminReflectionAnswers === 'function') {
+          loadAdminReflectionAnswers();
+        }
         alert('Semua jawaban refleksi telah dibersihkan!');
       };
 
@@ -1089,6 +1191,12 @@ alter table reflection_answers disable row level security;
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
               localSession = { ...localSession, ...data };
+              if (data.show_secret !== undefined) {
+                localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
+              }
+              if (data.active_mode) {
+                localStorage.setItem('bksn_active_mode', data.active_mode);
+              }
               mainHostRouter(localSession);
             }
           } catch (err) {}
@@ -1105,6 +1213,12 @@ alter table reflection_answers disable row level security;
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
                 localSession = { ...localSession, ...payload.new };
+                if (payload.new.show_secret !== undefined) {
+                  localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
+                }
+                if (payload.new.active_mode) {
+                  localStorage.setItem('bksn_active_mode', payload.new.active_mode);
+                }
                 mainHostRouter(localSession);
               }
             })
