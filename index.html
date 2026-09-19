@@ -596,6 +596,14 @@ alter table game_session disable row level security;
 
         if (supabaseClient) {
           try {
+            const { data: sessionData } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
+            if (sessionData) {
+              localSession = { ...localSession, ...sessionData };
+              if (sessionData.teks_data) localStorage.setItem('bksn_teks_data', JSON.stringify(sessionData.teks_data));
+              if (sessionData.group_count) localStorage.setItem('bksn_group_count', sessionData.group_count.toString());
+              if (typeof sessionData.show_secret === 'boolean') localStorage.setItem('bksn_show_secret', sessionData.show_secret ? 'true' : 'false');
+            }
+
             const { data } = await supabaseClient.from('presets').select('*');
             if (data && data.length > 0) {
               data.forEach(p => {
@@ -1109,27 +1117,20 @@ alter table game_session disable row level security;
           try {
             const { data } = await supabaseClient.from('game_session').select('*').eq('id', 1).maybeSingle();
             if (data) {
-              const currentLocalSec = localStorage.getItem('bksn_show_secret');
-              const localTeksData = safeJSONParse('bksn_teks_data', null);
-              const localGroupCount = localStorage.getItem('bksn_group_count');
-
               if (typeof data.show_secret === 'boolean') {
-                if (currentLocalSec === null || data.show_secret === true) {
-                  localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
-                }
+                localStorage.setItem('bksn_show_secret', data.show_secret ? 'true' : 'false');
               }
-              const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (data.show_secret ?? localSession.show_secret);
-              const finalTeksData = localTeksData || data.teks_data || localSession.teks_data;
-              const finalGroupCount = localGroupCount ? parseInt(localGroupCount) : (data.group_count || localSession.group_count || 2);
+              if (data.group_count) {
+                localStorage.setItem('bksn_group_count', data.group_count.toString());
+              }
+              if (data.teks_data) {
+                localStorage.setItem('bksn_teks_data', JSON.stringify(data.teks_data));
+              }
+              if (data.hasil_data) {
+                localStorage.setItem('bksn_hasil_data', JSON.stringify(data.hasil_data));
+              }
 
-              localSession = { 
-                ...localSession, 
-                ...data, 
-                teks_data: finalTeksData, 
-                group_count: finalGroupCount, 
-                show_secret: keepShowSecret 
-              };
-
+              localSession = { ...localSession, ...data };
               renderGameHostUI(localSession);
             }
           } catch (err) {}
@@ -1145,27 +1146,20 @@ alter table game_session disable row level security;
           supabaseClient.channel('game_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_session' }, payload => {
               if (payload.new) {
-                const currentLocalSec = localStorage.getItem('bksn_show_secret');
-                const localTeksData = safeJSONParse('bksn_teks_data', null);
-                const localGroupCount = localStorage.getItem('bksn_group_count');
-
                 if (typeof payload.new.show_secret === 'boolean') {
-                  if (currentLocalSec === null || payload.new.show_secret === true) {
-                    localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
-                  }
+                  localStorage.setItem('bksn_show_secret', payload.new.show_secret ? 'true' : 'false');
                 }
-                const keepShowSecret = currentLocalSec !== null ? (currentLocalSec === 'true') : (payload.new.show_secret ?? localSession.show_secret);
-                const finalTeksData = localTeksData || payload.new.teks_data || localSession.teks_data;
-                const finalGroupCount = localGroupCount ? parseInt(localGroupCount) : (payload.new.group_count || localSession.group_count || 2);
+                if (payload.new.group_count) {
+                  localStorage.setItem('bksn_group_count', payload.new.group_count.toString());
+                }
+                if (payload.new.teks_data) {
+                  localStorage.setItem('bksn_teks_data', JSON.stringify(payload.new.teks_data));
+                }
+                if (payload.new.hasil_data) {
+                  localStorage.setItem('bksn_hasil_data', JSON.stringify(payload.new.hasil_data));
+                }
 
-                localSession = { 
-                  ...localSession, 
-                  ...payload.new, 
-                  teks_data: finalTeksData, 
-                  group_count: finalGroupCount, 
-                  show_secret: keepShowSecret 
-                };
-
+                localSession = { ...localSession, ...payload.new };
                 renderGameHostUI(localSession);
               }
             })
