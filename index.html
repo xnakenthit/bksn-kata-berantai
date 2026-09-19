@@ -442,7 +442,6 @@
         const storedPin = (getAdminPin() || '1234').trim();
 
         if (inputPin === storedPin || inputPin === '1234') {
-          sessionStorage.setItem('bksn_admin_authed', 'true');
           renderAdminUI();
         } else {
           const err = document.getElementById('pinErrorMessage');
@@ -456,11 +455,7 @@
       };
 
       function initAdminPanel() {
-        if (sessionStorage.getItem('bksn_admin_authed') === 'true') {
-          renderAdminUI();
-        } else {
-          showPinAuthScreen();
-        }
+        showPinAuthScreen();
       }
 
       async function renderAdminUI() {
